@@ -4,17 +4,17 @@
   "description": "Applicazione professionale per la creazione e gestione di Composite Card per modelli e fotomodelli.",
   "icons": [
     {
-      "src": "/apple-touch-icon.png",
+      "src": "public/apple-touch-icon.png",
       "type": "image/png",
       "sizes": "180x180"
     },
     {
-      "src": "/icon-192.png",
+      "src": "public/icon-192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "/icon-512.png",
+      "src": "public/icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
