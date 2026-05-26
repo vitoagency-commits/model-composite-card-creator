@@ -997,6 +997,19 @@ export default function App() {
   const [showIframeWarning, setShowIframeWarning] = useState<boolean>(false);
   const [showQuickGuide, setShowQuickGuide] = useState<boolean>(false);
 
+  // States for the fashion welcome screen
+  const [hasEntered, setHasEntered] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("cosmo_welcome_entered") === "true";
+    } catch (e) {
+      return false;
+    }
+  });
+  const [activeHotspot, setActiveHotspot] = useState<string | null>("viso");
+  const [welcomeImageFilter, setWelcomeImageFilter] = useState<"normal" | "noir" | "golden">("normal");
+  const [welcomeImageZoom, setWelcomeImageZoom] = useState<number>(1.05);
+  const [dontShowAgainWelcome, setDontShowAgainWelcome] = useState<boolean>(false);
+
   // Automatically select all profiles when loaded
   useEffect(() => {
     if (localProfiles.length > 0 && selectedModelIds.length === 0) {
@@ -1938,6 +1951,299 @@ export default function App() {
     }
   };
 
+  if (!hasEntered) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex flex-col justify-between text-neutral-200 antialiased font-sans select-none relative overflow-y-auto px-4 py-8 md:p-12">
+        {/* Decorative background visual lights */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[130px] pointer-events-none"></div>
+        <div className="absolute bottom-[-15%] right-[-10%] w-[60%] h-[60%] rounded-full bg-slate-900/30 blur-[150px] pointer-events-none"></div>
+        
+        {/* Upper Brand Info header */}
+        <header className="max-w-6xl w-full mx-auto flex flex-col sm:flex-row items-center justify-between border-b border-neutral-800/40 pb-5 mb-8 md:mb-12 gap-4">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping"></span>
+            <span className="text-xs font-bold tracking-[0.3em] text-indigo-400 uppercase font-mono">FASHION STUDIO LIVE</span>
+          </div>
+          <div className="text-xs tracking-[0.4em] text-neutral-400 font-medium font-serif uppercase">
+            MILANO • PARIGI • NEW YORK • LONDRA
+          </div>
+        </header>
+
+        {/* Main interactive showcase grid */}
+        <main className="max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center flex-1">
+          
+          {/* Left Block: Interactive image of model */}
+          <div className="lg:col-span-6 flex flex-col items-center">
+            
+            {/* Interactive Image Frame */}
+            <div className="relative group w-full max-w-[370px] aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-800/80 shadow-2xl transition-all duration-500 hover:border-indigo-500/30">
+              
+              {/* Actual Image with dynamic filters and zoom controls */}
+              <img
+                src="https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&q=80&w=1200"
+                alt="High Fashion Model Cosmopolitan"
+                referrerPolicy="no-referrer"
+                style={{
+                  transform: `scale(${welcomeImageZoom})`,
+                  filter: welcomeImageFilter === "noir" 
+                    ? "grayscale(1) contrast(1.15) brightness(0.95)" 
+                    : welcomeImageFilter === "golden"
+                      ? "sepia(0.65) hue-rotate(330deg) brightness(0.95) contrast(1.05)"
+                      : "none"
+                }}
+                className="w-full h-full object-cover transition-all duration-700 ease-out origin-center"
+              />
+
+              {/* Ambient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-transparent to-neutral-950/40 pointer-events-none"></div>
+
+              {/* Luminous interactive pulses (Hotspots) */}
+              
+              {/* Viso / Portrait Focal Point */}
+              <button
+                type="button"
+                onClick={() => setActiveHotspot("viso")}
+                className="absolute top-[22%] left-[45%] -translate-x-1/2 -translate-y-1/2 group/pin z-20 flex items-center justify-center cursor-pointer"
+                title="Punto Focale Primo Piano"
+              >
+                <span className={`absolute inline-flex h-7 w-7 rounded-full opacity-75 animate-ping ${activeHotspot === "viso" ? "bg-indigo-400" : "bg-white/40"}`}></span>
+                <span className={`relative rounded-full h-6 w-6 flex items-center justify-center border text-[10px] font-bold transition-all ${activeHotspot === "viso" ? "bg-indigo-500 text-white border-indigo-300 scale-110 shadow-md" : "bg-white/80 text-black border-white"}`}>
+                  1
+                </span>
+              </button>
+
+              {/* Abbigliamento / Sartorial Layout Point */}
+              <button
+                type="button"
+                onClick={() => setActiveHotspot("abiti")}
+                className="absolute top-[52%] left-[38%] -translate-x-1/2 -translate-y-1/2 group/pin z-20 flex items-center justify-center cursor-pointer"
+                title="Dettaglio Composizione Corporate"
+              >
+                <span className={`absolute inline-flex h-7 w-7 rounded-full opacity-75 animate-ping ${activeHotspot === "abiti" ? "bg-indigo-400" : "bg-white/40"}`}></span>
+                <span className={`relative rounded-full h-6 w-6 flex items-center justify-center border text-[10px] font-bold transition-all ${activeHotspot === "abiti" ? "bg-indigo-500 text-white border-indigo-300 scale-110 shadow-md" : "bg-white/80 text-black border-white"}`}>
+                  2
+                </span>
+              </button>
+
+              {/* Fondale / Background Canvas Setting Point */}
+              <button
+                type="button"
+                onClick={() => setActiveHotspot("fondale")}
+                className="absolute top-[35%] left-[82%] -translate-x-1/2 -translate-y-1/2 group/pin z-20 flex items-center justify-center cursor-pointer"
+                title="Impostazioni Fondale Studio"
+              >
+                <span className={`absolute inline-flex h-7 w-7 rounded-full opacity-75 animate-ping ${activeHotspot === "fondale" ? "bg-indigo-400" : "bg-white/40"}`}></span>
+                <span className={`relative rounded-full h-6 w-6 flex items-center justify-center border text-[10px] font-bold transition-all ${activeHotspot === "fondale" ? "bg-indigo-500 text-white border-indigo-300 scale-110 shadow-md" : "bg-white/80 text-black border-white"}`}>
+                  3
+                </span>
+              </button>
+
+              {/* Sleek watermarked HUD specs */}
+              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between select-none">
+                <div>
+                  <div className="text-[10px] text-indigo-400 font-mono tracking-wider uppercase">Editorial Card</div>
+                  <div className="text-sm font-bold tracking-tight text-white font-serif">A4 Layout Model Test</div>
+                </div>
+                <div className="text-right font-mono text-[9px] text-neutral-400 bg-neutral-900/80 backdrop-blur-xs py-0.5 px-2 rounded-md border border-neutral-800">
+                  REF #509631
+                </div>
+              </div>
+
+              {/* Interactive Hover Tips */}
+              <div className="absolute top-4 left-4 right-4 flex justify-between select-none pointer-events-none">
+                <span className="text-[9px] font-mono tracking-widest text-white/50 bg-black/40 backdrop-blur-xs py-1 px-2.5 rounded-full uppercase font-medium">
+                  preview interattivo
+                </span>
+                <span className="text-[9px] font-mono tracking-widest text-indigo-300 bg-indigo-950/50 backdrop-blur-xs py-1 px-2.5 rounded-full uppercase font-medium">
+                  punta i numeri
+                </span>
+              </div>
+            </div>
+
+            {/* Interactive control dashboard right under the image */}
+            <div className="w-full max-w-[370px] mt-4 space-y-4">
+              
+              {/* Dynamic hotspot explainer panel */}
+              <div className="bg-neutral-900/80 backdrop-blur-sm p-4 rounded-xl border border-neutral-800/80 min-h-[96px] flex flex-col justify-center">
+                {activeHotspot === "viso" && (
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 font-mono mb-1 block">
+                      1. PORTRAIT FOCAL (PRIMO PIANO HD)
+                    </span>
+                    <p className="text-xs text-neutral-300 leading-relaxed font-sans">
+                      Ottimizzato per valorizzare i lineamenti forti nei primi piani e schede headshot. Risalta l'espressività della modella/o e la simmetria del volto.
+                    </p>
+                  </div>
+                )}
+                {activeHotspot === "abiti" && (
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 font-mono mb-1 block">
+                      2. GEOMETRIC BALANCE (COMPOSIT AD ALTO IMPATTO)
+                    </span>
+                    <p className="text-xs text-neutral-300 leading-relaxed font-sans">
+                      La posa ideale per il layout multi-foto (a 2, 3 o 4 immagini). Consente di mostrare outfit differenti combinando pose a mezza figura e scatti total-body.
+                    </p>
+                  </div>
+                )}
+                {activeHotspot === "fondale" && (
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 font-mono mb-1 block">
+                      3. STUDIO CANVAS LIGHTING (FONDALI HI-CLASS)
+                    </span>
+                    <p className="text-xs text-neutral-300 leading-relaxed font-sans">
+                      Neutralizzazione dello sfondo e tonalità calibrate (Silver, Charcoal, Beige, Gold) per dare uniformità cromatica al portfolio cartaceo e digitale.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Filters selector and Zoom slider */}
+              <div className="grid grid-cols-2 gap-3 items-center">
+                {/* Real-time filters */}
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase tracking-wider text-neutral-400 font-mono">Filtro Foto</label>
+                  <div className="flex bg-neutral-900 rounded-lg p-0.5 border border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => setWelcomeImageFilter("normal")}
+                      className={`flex-1 text-[9px] font-bold py-1 rounded transition-all cursor-pointer ${welcomeImageFilter === "normal" ? "bg-indigo-600 text-white" : "text-neutral-400 hover:text-white"}`}
+                    >
+                      Colori
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWelcomeImageFilter("noir")}
+                      className={`flex-1 text-[9px] font-bold py-1 rounded transition-all cursor-pointer ${welcomeImageFilter === "noir" ? "bg-indigo-600 text-white" : "text-neutral-400 hover:text-white"}`}
+                    >
+                      B&N
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWelcomeImageFilter("golden")}
+                      className={`flex-1 text-[9px] font-bold py-1 rounded transition-all cursor-pointer ${welcomeImageFilter === "golden" ? "bg-indigo-600 text-white" : "text-neutral-400 hover:text-white"}`}
+                    >
+                      Caldo
+                    </button>
+                  </div>
+                </div>
+
+                {/* Interactive Zoom Slider */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[9px] uppercase tracking-wider text-neutral-400 font-mono">Zoom Anteprima</label>
+                    <span className="text-[9px] text-indigo-400 font-mono font-medium">{Math.round(welcomeImageZoom * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1.0"
+                    max="1.3"
+                    step="0.05"
+                    value={welcomeImageZoom}
+                    onChange={(e) => setWelcomeImageZoom(parseFloat(e.target.value))}
+                    className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Right Block: Studio information & Entry Portal */}
+          <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-950/50 border border-indigo-800/40 rounded-full text-[10px] font-bold text-indigo-300 font-mono uppercase tracking-wider mb-4">
+                <Sparkles size={11} className="inline animate-spin-slow text-indigo-400" /> Composit Landscape Studio v2.4
+              </div>
+              <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white uppercase font-sans leading-tight">
+                Estendi il Portfolio <span className="text-indigo-400">Model Composit</span>
+              </h2>
+              <div className="h-1 w-16 bg-gradient-to-r from-indigo-500 to-slate-500 my-4 mx-auto lg:mx-0 rounded"></div>
+              <p className="text-sm md:text-base text-neutral-300 leading-relaxed font-serif max-w-lg mx-auto lg:mx-0">
+                Benvenuto nella piattaforma professionale di impaginazione e creazione dei Composit per Modelle e Modelli di Cosmopolitan Agency. Ottimizzato per la stampa in formato internazionale A4 Orizzontale.
+              </p>
+            </div>
+
+            {/* Practical instructions highlighted of how to extend model's portfolio */}
+            <div className="bg-neutral-900/60 rounded-xl p-5 border border-neutral-800/50 space-y-4 text-left max-w-xl mx-auto lg:mx-0">
+              <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-400 font-mono block border-b border-neutral-800/80 pb-2">
+                Guida Studio Fashion: come estendere un Portfolio?
+              </span>
+              
+              <ul className="space-y-3.5 text-xs text-neutral-300">
+                <li className="flex items-start gap-2.5">
+                  <div className="bg-indigo-950 text-indigo-200 p-1.5 rounded-lg border border-indigo-900/50 mt-0.5 shrink-0">
+                    <Grid size={13} />
+                  </div>
+                  <div>
+                    <strong className="text-neutral-100 font-medium block">1. Scegli Layout e Foto diverse</strong>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">La stessa modella può avere differenti schede. Usa il layout a 1 foto per il primo piano ed un altro a 3 o 4 foto per gli scatti total-body.</p>
+                  </div>
+                </li>
+                
+                <li className="flex items-start gap-2.5">
+                  <div className="bg-indigo-950 text-indigo-200 p-1.5 rounded-lg border border-indigo-900/50 mt-0.5 shrink-0">
+                    <Layers size={13} />
+                  </div>
+                  <div>
+                    <strong className="text-neutral-100 font-medium block">2. Duplica in un click</strong>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">Clicca su "Salvati" dell'editor, quindi clicca su <strong className="text-indigo-400">"Duplica e Crea Copia"</strong>. Verrà creata una copia indipendente (es: "Valeria Bis") in cui caricare immagini alternative lasciando i dati immutati.</p>
+                  </div>
+                </li>
+
+                <li className="flex items-start gap-2.5">
+                  <div className="bg-indigo-950 text-indigo-200 p-1.5 rounded-lg border border-indigo-900/50 mt-0.5 shrink-0">
+                    <Download size={13} />
+                  </div>
+                  <div>
+                    <strong className="text-neutral-100 font-medium block">3. Crea Cataloghi di Gruppo</strong>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">Raccogli e seleziona le diverse schede duplicate dallo storico in basso. Clicca su "Esporta Catalogo PDF" per generare un unico Book composit pronto da stampare.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            {/* Launch Call To Actions */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setHasEntered(true);
+                  if (dontShowAgainWelcome) {
+                    try {
+                      localStorage.setItem("cosmo_welcome_entered", "true");
+                    } catch (e) {}
+                  }
+                }}
+                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-505 text-white font-bold text-xs py-3.5 px-6 rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-950/50 hover:shadow-indigo-900/30 transition-all cursor-pointer select-none"
+              >
+                <span>ENTRA NELLO STUDIO FASHION</span>
+                <ChevronRight size={14} />
+              </button>
+
+              <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer py-1 select-none">
+                <input
+                  type="checkbox"
+                  checked={dontShowAgainWelcome}
+                  onChange={(e) => setDontShowAgainWelcome(e.target.checked)}
+                  className="rounded border-neutral-750 bg-neutral-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer h-4 w-4"
+                />
+                <span>Non mostrare più all'avvio</span>
+              </label>
+            </div>
+
+          </div>
+        </main>
+
+        {/* Footer with Cosmopolitan branding precisely requested */}
+        <footer className="w-full text-center border-t border-neutral-900/80 pt-6 mt-8 md:mt-12 select-none">
+          <div className="text-[11px] font-mono tracking-[0.25em] text-neutral-500 uppercase">
+            created by cosmopolitanagency
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-800 antialiased font-sans">
       
@@ -1957,6 +2263,18 @@ export default function App() {
 
         {/* Toggle Form and Studio Badge Section */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setHasEntered(false);
+              showNotification("Apertura presentazione fashion...", "info");
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 hover:text-slate-950 rounded-xl transition-all shadow-2xs border border-slate-200 cursor-pointer"
+            title="Mostra la presentazione e la guida interattiva del brand"
+          >
+            <Sparkles size={13} className="text-indigo-600 animate-pulse" />
+            <span>Guida & Brand</span>
+          </button>
+
           <button
             onClick={() => {
               setShowForm(!showForm);
