@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "ModelData": {
+      "title": "ModelProfile",
+      "description": "Represents the dynamic physical details, crops, and layout settings of a model or model child.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "height": { "type": "string" },
+        "bust": { "type": "string" },
+        "waist": { "type": "string" },
+        "hips": { "type": "string" },
+        "shoes": { "type": "string" },
+        "eyes": { "type": "string" },
+        "hair": { "type": "string" },
+        "sizeUpper": { "type": "string" },
+        "sizeLower": { "type": "string" },
+        "imageLeft": { "type": "string" },
+        "imageCenter": { "type": "string" },
+        "imageRight": { "type": "string" },
+        "zoomLeft": { "type": "number" },
+        "zoomCenter": { "type": "number" },
+        "zoomRight": { "type": "number" },
+        "offsetXLeft": { "type": "number" },
+        "offsetYLeft": { "type": "number" },
+        "offsetXCenter": { "type": "number" },
+        "offsetYCenter": { "type": "number" },
+        "offsetXRight": { "type": "number" },
+        "offsetYRight": { "type": "number" },
+        "layout": { "type": "string", "enum": ["classic", "duo", "asymmetric-left", "solo", "grid-4", "grid-6"] },
+        "image4": { "type": "string" },
+        "image5": { "type": "string" },
+        "image6": { "type": "string" },
+        "zoom4": { "type": "number" },
+        "zoom5": { "type": "number" },
+        "zoom6": { "type": "number" },
+        "offsetX4": { "type": "number" },
+        "offsetY4": { "type": "number" },
+        "offsetX5": { "type": "number" },
+        "offsetY5": { "type": "number" },
+        "offsetX6": { "type": "number" },
+        "offsetY6": { "type": "number" },
+        "gender": { "type": "string", "enum": ["model woman", "model man", "child model woman", "child model man"] }
+      },
+      "required": ["id", "name"]
+    },
+    "AgencyInfo": {
+      "title": "AgencyDetails",
+      "description": "Represents the branding, logo, contact channels, and social details of the agency.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "phone": { "type": "string" },
+        "web": { "type": "string" },
+        "email": { "type": "string" },
+        "portfolioDate": { "type": "string" },
+        "logo": { "type": "string" },
+        "instagram": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "facebook": { "type": "string" },
+        "threads": { "type": "string" },
+        "pinterest": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/models/{modelId}": {
+      "schema": "ModelData",
+      "description": "Collection of model, model woman, model man, and child profiles."
+    },
+    "/agency/{agencyId}": {
+      "schema": "AgencyInfo",
+      "description": "Stores configurations page for agency settings."
+    }
+  }
+}

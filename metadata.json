@@ -1,0 +1,6 @@
+{
+  "name": "Model Composite Card Creator",
+  "description": "Applicazione per la creazione, gestione e download in PDF di schede tecniche (composit) orizzontali in formato A4/A3 per agenzie di moda. Permette il ridimensionamento automatico delle foto, l'inserimento di dati fisici e l'esportazione ad alta risoluzione.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

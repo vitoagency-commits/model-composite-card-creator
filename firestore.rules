@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Priming validation helpers
+    function isValidId(id) {
+      return id is string 
+        && id.size() <= 128 
+        && id.matches('^[a-zA-Z0-9_\\-+ :;\\.]+$');
+    }
+
+    function isValidModel(m) {
+      return m.id is string 
+        && m.name is string 
+        && m.name.size() <= 200
+        && m.keys().hasAll(['id', 'name'])
+        && (!('gender' in m) || m.gender in ["model woman", "model man", "child model woman", "child model man"])
+        && (!('layout' in m) || m.layout in ["classic", "duo", "asymmetric-left", "solo", "grid-4", "grid-6"])
+        && m.keys().size() <= 55;
+    }
+
+    // 3. Models Collection Rules
+    match /models/{modelId} {
+      allow read: if true;
+      allow create: if isValidId(modelId) && isValidModel(request.resource.data);
+      allow update: if isValidId(modelId) && isValidModel(request.resource.data);
+      allow delete: if isValidId(modelId);
+    }
+
+    // 4. Agency Configurations Rules
+    match /agency/{agencyId} {
+      allow read: if true;
+      allow create: if isValidId(agencyId) && request.resource.data.keys().size() <= 25;
+      allow update: if isValidId(agencyId) && request.resource.data.keys().size() <= 25;
+      allow delete: if isValidId(agencyId);
+    }
+  }
+}
