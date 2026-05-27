@@ -10,6 +10,97 @@ interface ModelCardProps {
   id?: string;
 }
 
+interface CardImageProps {
+  src: string;
+  alt: string;
+  zoom: number | undefined;
+  offsetX: number | undefined;
+  offsetY: number | undefined;
+}
+
+const CardImage: React.FC<CardImageProps> = ({ src, alt, zoom, offsetX, offsetY }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 });
+  const [aspectRatio, setAspectRatio] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setDimensions({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  React.useEffect(() => {
+    if (!src) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      setAspectRatio(img.naturalWidth / img.naturalHeight);
+    };
+    img.src = src;
+  }, [src]);
+
+  const activeZoom = (zoom !== undefined && !isNaN(zoom)) ? zoom : 100;
+  const activeOffsetX = (offsetX !== undefined && !isNaN(offsetX)) ? offsetX : 50;
+  const activeOffsetY = (offsetY !== undefined && !isNaN(offsetY)) ? offsetY : 50;
+
+  const scale = activeZoom / 100;
+  const isContain = activeZoom < 100;
+
+  let bgSizeStyle = "cover";
+  let bgPositionStyle = `${activeOffsetX}% ${activeOffsetY}%`;
+
+  if (dimensions.width > 0 && dimensions.height > 0 && aspectRatio !== null) {
+    const containerRatio = dimensions.width / dimensions.height;
+    let wImg = 0;
+    let hImg = 0;
+
+    if (!isContain) {
+      if (aspectRatio > containerRatio) {
+        hImg = dimensions.height * scale;
+        wImg = hImg * aspectRatio;
+      } else {
+        wImg = dimensions.width * scale;
+        hImg = wImg / aspectRatio;
+      }
+    } else {
+      if (aspectRatio > containerRatio) {
+        wImg = dimensions.width * scale;
+        hImg = wImg / aspectRatio;
+      } else {
+        hImg = dimensions.height * scale;
+        wImg = hImg * aspectRatio;
+      }
+    }
+
+    bgSizeStyle = `${wImg}px ${hImg}px`;
+  }
+
+  const escapedSrc = src ? src.replace(/"/g, '\\"') : "";
+
+  return (
+    <div
+      ref={containerRef}
+      role="img"
+      aria-label={alt}
+      className="absolute inset-0 select-none bg-no-repeat w-full h-full bg-center"
+      style={{
+        backgroundImage: src ? `url("${escapedSrc}")` : undefined,
+        backgroundSize: bgSizeStyle,
+        backgroundPosition: bgPositionStyle,
+        transition: "background-size 0.05s ease-out, background-position 0.05s ease-out",
+      }}
+    />
+  );
+};
+
 // Pure, high-fidelity vector representation of the official Cosmopolitan brand logo
 const CosmopolitanTextLogo: React.FC = () => {
   // Split "modaeventipubblicitàcomunicazione" into individual characters with their respective colors
@@ -248,13 +339,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageLeft ? (
-                      <img
+                      <CardImage
                         src={model.imageLeft}
                         alt="Portrait Left"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomLeft, model.offsetXLeft, model.offsetYLeft)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomLeft}
+                        offsetX={model.offsetXLeft}
+                        offsetY={model.offsetYLeft}
                       />
                     ) : (
                       <div className="text-center p-4">
@@ -277,13 +367,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageCenter ? (
-                      <img
+                      <CardImage
                         src={model.imageCenter}
                         alt="Center Three-quarters"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomCenter, model.offsetXCenter, model.offsetYCenter)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomCenter}
+                        offsetX={model.offsetXCenter}
+                        offsetY={model.offsetYCenter}
                       />
                     ) : (
                       <div className="text-center p-4">
@@ -306,13 +395,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageRight ? (
-                      <img
+                      <CardImage
                         src={model.imageRight}
                         alt="Right Full body"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomRight, model.offsetXRight, model.offsetYRight)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomRight}
+                        offsetX={model.offsetXRight}
+                        offsetY={model.offsetYRight}
                       />
                     ) : (
                       <div className="text-center p-4">
@@ -340,13 +428,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageLeft ? (
-                      <img
+                      <CardImage
                         src={model.imageLeft}
                         alt="Portrait Left"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomLeft, model.offsetXLeft, model.offsetYLeft)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomLeft}
+                        offsetX={model.offsetXLeft}
+                        offsetY={model.offsetYLeft}
                       />
                     ) : (
                       <div className="text-center p-4">
@@ -370,13 +457,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageRight ? (
-                      <img
+                      <CardImage
                         src={model.imageRight}
                         alt="Right Portrait"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomRight, model.offsetXRight, model.offsetYRight)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomRight}
+                        offsetX={model.offsetXRight}
+                        offsetY={model.offsetYRight}
                       />
                     ) : (
                       <div className="text-center p-4">
@@ -405,13 +491,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageLeft ? (
-                      <img
+                      <CardImage
                         src={model.imageLeft}
                         alt="Cover Left"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomLeft, model.offsetXLeft, model.offsetYLeft)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomLeft}
+                        offsetX={model.offsetXLeft}
+                        offsetY={model.offsetYLeft}
                       />
                     ) : (
                       <div className="text-center p-4">
@@ -437,13 +522,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   >
                     <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                       {model.imageCenter ? (
-                        <img
+                        <CardImage
                           src={model.imageCenter}
                           alt="Center landscape"
-                          className="absolute w-full h-full object-cover select-none"
-                          style={getImageStyle(model.zoomCenter, model.offsetXCenter, model.offsetYCenter)}
-                          referrerPolicy="no-referrer"
-                          crossOrigin="anonymous"
+                          zoom={model.zoomCenter}
+                          offsetX={model.offsetXCenter}
+                          offsetY={model.offsetYCenter}
                         />
                       ) : (
                         <div className="text-center p-2">
@@ -467,13 +551,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   >
                     <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                       {model.imageRight ? (
-                        <img
+                        <CardImage
                           src={model.imageRight}
                           alt="Right landscape"
-                          className="absolute w-full h-full object-cover select-none"
-                          style={getImageStyle(model.zoomRight, model.offsetXRight, model.offsetYRight)}
-                          referrerPolicy="no-referrer"
-                          crossOrigin="anonymous"
+                          zoom={model.zoomRight}
+                          offsetX={model.offsetXRight}
+                          offsetY={model.offsetYRight}
                         />
                       ) : (
                         <div className="text-center p-2">
@@ -501,22 +584,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
               >
                 <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                   {model.imageCenter ? (
-                    <img
+                    <CardImage
                       src={model.imageCenter}
                       alt="Solo Highlight"
-                      className="absolute w-full h-full object-cover select-none"
-                      style={getImageStyle(model.zoomCenter, model.offsetXCenter, model.offsetYCenter)}
-                      referrerPolicy="no-referrer"
-                      crossOrigin="anonymous"
+                      zoom={model.zoomCenter}
+                      offsetX={model.offsetXCenter}
+                      offsetY={model.offsetYCenter}
                     />
                   ) : model.imageLeft ? (
-                    <img
+                    <CardImage
                       src={model.imageLeft}
                       alt="Solo Highlight"
-                      className="absolute w-full h-full object-cover select-none"
-                      style={getImageStyle(model.zoomLeft, model.offsetXLeft, model.offsetYLeft)}
-                      referrerPolicy="no-referrer"
-                      crossOrigin="anonymous"
+                      zoom={model.zoomLeft}
+                      offsetX={model.offsetXLeft}
+                      offsetY={model.offsetYLeft}
                     />
                   ) : (
                     <div className="text-center p-4">
@@ -544,13 +625,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageLeft ? (
-                      <img
+                      <CardImage
                         src={model.imageLeft}
                         alt="Grid 1"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomLeft, model.offsetXLeft, model.offsetYLeft)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomLeft}
+                        offsetX={model.offsetXLeft}
+                        offsetY={model.offsetYLeft}
                       />
                     ) : (
                       <div className="text-center p-2">
@@ -571,13 +651,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageCenter ? (
-                      <img
+                      <CardImage
                         src={model.imageCenter}
                         alt="Grid 2"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomCenter, model.offsetXCenter, model.offsetYCenter)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomCenter}
+                        offsetX={model.offsetXCenter}
+                        offsetY={model.offsetYCenter}
                       />
                     ) : (
                       <div className="text-center p-2">
@@ -598,13 +677,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageRight ? (
-                      <img
+                      <CardImage
                         src={model.imageRight}
                         alt="Grid 3"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomRight, model.offsetXRight, model.offsetYRight)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomRight}
+                        offsetX={model.offsetXRight}
+                        offsetY={model.offsetYRight}
                       />
                     ) : (
                       <div className="text-center p-2">
@@ -625,13 +703,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.image4 ? (
-                      <img
+                      <CardImage
                         src={model.image4}
                         alt="Grid 4"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoom4 ?? 100, model.offsetX4 ?? 50, model.offsetY4 ?? 50)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoom4}
+                        offsetX={model.offsetX4}
+                        offsetY={model.offsetY4}
                       />
                     ) : (
                       <div className="text-center p-2">
@@ -657,13 +734,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageLeft ? (
-                      <img
+                      <CardImage
                         src={model.imageLeft}
                         alt="Grid 6 - 1"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomLeft, model.offsetXLeft, model.offsetYLeft)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomLeft}
+                        offsetX={model.offsetXLeft}
+                        offsetY={model.offsetYLeft}
                       />
                     ) : (
                       <div className="text-center p-1">
@@ -683,13 +759,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageCenter ? (
-                      <img
+                      <CardImage
                         src={model.imageCenter}
                         alt="Grid 6 - 2"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomCenter, model.offsetXCenter, model.offsetYCenter)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomCenter}
+                        offsetX={model.offsetXCenter}
+                        offsetY={model.offsetYCenter}
                       />
                     ) : (
                       <div className="text-center p-1">
@@ -709,13 +784,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageRight ? (
-                      <img
+                      <CardImage
                         src={model.imageRight}
                         alt="Grid 6 - 3"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomRight, model.offsetXRight, model.offsetYRight)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomRight}
+                        offsetX={model.offsetXRight}
+                        offsetY={model.offsetYRight}
                       />
                     ) : (
                       <div className="text-center p-1">
@@ -735,13 +809,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.image4 ? (
-                      <img
+                      <CardImage
                         src={model.image4}
                         alt="Grid 6 - 4"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoom4 ?? 100, model.offsetX4 ?? 50, model.offsetY4 ?? 50)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoom4}
+                        offsetX={model.offsetX4}
+                        offsetY={model.offsetY4}
                       />
                     ) : (
                       <div className="text-center p-1">
@@ -761,13 +834,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.image5 ? (
-                      <img
+                      <CardImage
                         src={model.image5}
                         alt="Grid 6 - 5"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoom5 ?? 100, model.offsetX5 ?? 50, model.offsetY5 ?? 50)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoom5}
+                        offsetX={model.offsetX5}
+                        offsetY={model.offsetY5}
                       />
                     ) : (
                       <div className="text-center p-1">
@@ -787,13 +859,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.image6 ? (
-                      <img
+                      <CardImage
                         src={model.image6}
                         alt="Grid 6 - 6"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoom6 ?? 100, model.offsetX6 ?? 50, model.offsetY6 ?? 50)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoom6}
+                        offsetX={model.offsetX6}
+                        offsetY={model.offsetY6}
                       />
                     ) : (
                       <div className="text-center p-1">
@@ -818,13 +889,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageLeft ? (
-                      <img
+                      <CardImage
                         src={model.imageLeft}
                         alt="Left Tall Editorial"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomLeft, model.offsetXLeft, model.offsetYLeft)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomLeft}
+                        offsetX={model.offsetXLeft}
+                        offsetY={model.offsetYLeft}
                       />
                     ) : (
                       <div className="text-center p-2">
@@ -906,13 +976,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageCenter ? (
-                      <img
+                      <CardImage
                         src={model.imageCenter}
                         alt="Center Editorial Portrait"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomCenter, model.offsetXCenter, model.offsetYCenter)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomCenter}
+                        offsetX={model.offsetXCenter}
+                        offsetY={model.offsetYCenter}
                       />
                     ) : (
                       <div className="text-center p-2">
@@ -936,13 +1005,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-0.5 shadow-xs border border-slate-200/60 transition-all duration-300 w-[38mm] h-[55.5mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
                   >
                     {model.imageRight ? (
-                      <img
+                      <CardImage
                         src={model.imageRight}
                         alt="Editorial grid 1"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoomRight, model.offsetXRight, model.offsetYRight)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoomRight}
+                        offsetX={model.offsetXRight}
+                        offsetY={model.offsetYRight}
                       />
                     ) : (
                       <p className="text-[7px] text-stone-400 uppercase font-semibold">Foto 3</p>
@@ -956,13 +1024,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-0.5 shadow-xs border border-slate-200/60 transition-all duration-300 w-[38mm] h-[55.5mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
                   >
                     {model.image4 ? (
-                      <img
+                      <CardImage
                         src={model.image4}
                         alt="Editorial grid 2"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoom4 ?? 100, model.offsetX4 ?? 50, model.offsetY4 ?? 50)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoom4}
+                        offsetX={model.offsetX4}
+                        offsetY={model.offsetY4}
                       />
                     ) : (
                       <p className="text-[7px] text-stone-400 uppercase font-semibold">Foto 4</p>
@@ -976,13 +1043,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-0.5 shadow-xs border border-slate-200/60 transition-all duration-300 w-[38mm] h-[55.5mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
                   >
                     {model.image5 ? (
-                      <img
+                      <CardImage
                         src={model.image5}
                         alt="Editorial grid 3"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoom5 ?? 100, model.offsetX5 ?? 50, model.offsetY5 ?? 50)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoom5}
+                        offsetX={model.offsetX5}
+                        offsetY={model.offsetY5}
                       />
                     ) : (
                       <p className="text-[7px] text-stone-400 uppercase font-semibold">Foto 5</p>
@@ -996,13 +1062,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-0.5 shadow-xs border border-slate-200/60 transition-all duration-300 w-[38mm] h-[55.5mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
                   >
                     {model.image6 ? (
-                      <img
+                      <CardImage
                         src={model.image6}
                         alt="Editorial grid 4"
-                        className="absolute w-full h-full object-cover select-none"
-                        style={getImageStyle(model.zoom6 ?? 100, model.offsetX6 ?? 50, model.offsetY6 ?? 50)}
-                        referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
+                        zoom={model.zoom6}
+                        offsetX={model.offsetX6}
+                        offsetY={model.offsetY6}
                       />
                     ) : (
                       <p className="text-[7px] text-stone-400 uppercase font-semibold">Foto 6</p>

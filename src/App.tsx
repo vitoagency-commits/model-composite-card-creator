@@ -126,7 +126,14 @@ export const disegnaModellaSuPDF = async (
   const resolvedCapelli = String(capelli || "—");
   const resolvedTaglia = String(taglia || "—");
 
-  const elaboraImmagineCover = (url: string, targetWidth: number, targetHeight: number): Promise<string | null> => {
+  const elaboraImmagineCover = (
+    url: string, 
+    targetWidth: number, 
+    targetHeight: number,
+    zoom: number | undefined,
+    offsetX: number | undefined,
+    offsetY: number | undefined
+  ): Promise<string | null> => {
     return new Promise((resolve) => {
       if (!url) { resolve(null); return; }
       const img = new Image();
@@ -138,20 +145,70 @@ export const disegnaModellaSuPDF = async (
         const ctx = canvas.getContext("2d");
         if (!ctx) { resolve(null); return; }
 
+        const activeZoom = (zoom !== undefined && !isNaN(zoom)) ? zoom : 100;
+        const activeOffsetX = (offsetX !== undefined && !isNaN(offsetX)) ? offsetX : 50;
+        const activeOffsetY = (offsetY !== undefined && !isNaN(offsetY)) ? offsetY : 50;
+
+        const scale = activeZoom / 100;
+        const isContain = activeZoom < 100;
+
         const imgRatio = img.width / img.height;
         const targetRatio = targetWidth / targetHeight;
-        let sx, sy, sw, sh;
 
-        if (imgRatio > targetRatio) {
-          sh = img.height;
-          sw = img.height * targetRatio;
-          sx = (img.width - sw) / 2;
-          sy = 0;
+        let sx = 0;
+        let sy = 0;
+        let sw = img.width;
+        let sh = img.height;
+
+        if (!isContain) {
+          // Cover behavior with zoom and offset
+          let sw_base = img.width;
+          let sh_base = img.height;
+
+          if (imgRatio > targetRatio) {
+            sh_base = img.height;
+            sw_base = img.height * targetRatio;
+          } else {
+            sw_base = img.width;
+            sh_base = img.width / targetRatio;
+          }
+
+          sw = sw_base / scale;
+          sh = sw / targetRatio;
+
+          // Clamp values to ensure we stay inside the source image dimensions
+          if (sw > img.width) {
+            sw = img.width;
+            sh = sw / targetRatio;
+          }
+          if (sh > img.height) {
+            sh = img.height;
+            sw = sh * targetRatio;
+          }
+
+          // Offset slides zoom window
+          sx = (img.width - sw) * (activeOffsetX / 100);
+          sy = (img.height - sh) * (activeOffsetY / 100);
         } else {
-          sw = img.width;
-          sh = img.width / targetRatio;
-          sx = 0;
-          sy = (img.height - sh) / 2;
+          // Contain behavior
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          let w_draw = canvas.width * scale;
+          let h_draw = canvas.height * scale;
+
+          if (imgRatio > targetRatio) {
+            h_draw = w_draw / imgRatio;
+          } else {
+            w_draw = h_draw * imgRatio;
+          }
+
+          const x_draw = (canvas.width - w_draw) * (activeOffsetX / 100);
+          const y_draw = (canvas.height - h_draw) * (activeOffsetY / 100);
+
+          ctx.drawImage(img, 0, 0, img.width, img.height, x_draw, y_draw, w_draw, h_draw);
+          resolve(canvas.toDataURL("image/jpeg", 0.95));
+          return;
         }
 
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
@@ -193,12 +250,54 @@ export const disegnaModellaSuPDF = async (
   };
 
   const promsElaborate = [
-    elaboraImmagineCover(foto1, getDimensioniSlot("Left").w, getDimensioniSlot("Left").h),
-    elaboraImmagineCover(foto2, getDimensioniSlot("Center").w, getDimensioniSlot("Center").h),
-    elaboraImmagineCover(foto3, getDimensioniSlot("Right").w, getDimensioniSlot("Right").h),
-    elaboraImmagineCover(foto4, getDimensioniSlot("image4").w, getDimensioniSlot("image4").h),
-    elaboraImmagineCover(foto5, getDimensioniSlot("image5").w, getDimensioniSlot("image5").h),
-    elaboraImmagineCover(foto6, getDimensioniSlot("image6").w, getDimensioniSlot("image6").h),
+    elaboraImmagineCover(
+      foto1, 
+      getDimensioniSlot("Left").w, 
+      getDimensioniSlot("Left").h,
+      resolvedDati?.zoomLeft,
+      resolvedDati?.offsetXLeft,
+      resolvedDati?.offsetYLeft
+    ),
+    elaboraImmagineCover(
+      foto2, 
+      getDimensioniSlot("Center").w, 
+      getDimensioniSlot("Center").h,
+      resolvedDati?.zoomCenter,
+      resolvedDati?.offsetXCenter,
+      resolvedDati?.offsetYCenter
+    ),
+    elaboraImmagineCover(
+      foto3, 
+      getDimensioniSlot("Right").w, 
+      getDimensioniSlot("Right").h,
+      resolvedDati?.zoomRight,
+      resolvedDati?.offsetXRight,
+      resolvedDati?.offsetYRight
+    ),
+    elaboraImmagineCover(
+      foto4, 
+      getDimensioniSlot("image4").w, 
+      getDimensioniSlot("image4").h,
+      resolvedDati?.zoom4,
+      resolvedDati?.offsetX4,
+      resolvedDati?.offsetY4
+    ),
+    elaboraImmagineCover(
+      foto5, 
+      getDimensioniSlot("image5").w, 
+      getDimensioniSlot("image5").h,
+      resolvedDati?.zoom5,
+      resolvedDati?.offsetX5,
+      resolvedDati?.offsetY5
+    ),
+    elaboraImmagineCover(
+      foto6, 
+      getDimensioniSlot("image6").w, 
+      getDimensioniSlot("image6").h,
+      resolvedDati?.zoom6,
+      resolvedDati?.offsetX6,
+      resolvedDati?.offsetY6
+    ),
   ];
 
   const immaginiElaborate = await Promise.all(promsElaborate);
