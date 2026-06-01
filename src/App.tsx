@@ -82,13 +82,17 @@ export const disegnaModellaSuPDF = async (
   indexPagina: number,
   totalPagine: number,
   socialScelti: { url: string; base64: string }[],
-  agency: any
+  agency: any,
+  globalThemeColor?: "silver" | "charcoal" | "beige" | "gold" | "white"
 ) => {
   const hasExternalData = datiModella && typeof datiModella === "object";
   const resolvedDati = hasExternalData ? datiModella : null;
 
   const nomeModella = (resolvedDati?.nome || resolvedDati?.name || "MARIA V.").toUpperCase();
   const layout = resolvedDati?.layout || "classic";
+  const campaignName = resolvedDati?.campaignName || "";
+  const customCaption = resolvedDati?.customCaption || "";
+  const parsedThemeColor = globalThemeColor || resolvedDati?.themeColor || "silver";
 
   const foto1 = resolvedDati?.foto1 || resolvedDati?.imageLeft || "";
   const foto2 = resolvedDati?.foto2 || resolvedDati?.imageCenter || "";
@@ -96,6 +100,10 @@ export const disegnaModellaSuPDF = async (
   const foto4 = resolvedDati?.foto4 || resolvedDati?.image4 || "";
   const foto5 = resolvedDati?.foto5 || resolvedDati?.image5 || "";
   const foto6 = resolvedDati?.foto6 || resolvedDati?.image6 || "";
+  const foto7 = resolvedDati?.foto7 || resolvedDati?.image7 || "";
+  const foto8 = resolvedDati?.foto8 || resolvedDati?.image8 || "";
+  const foto9 = resolvedDati?.foto9 || resolvedDati?.image9 || "";
+  const foto10 = resolvedDati?.foto10 || resolvedDati?.image10 || "";
 
   const altezza = resolvedDati?.altezza || resolvedDati?.height || "—";
   const seno = resolvedDati?.seno || resolvedDati?.bust || "—";
@@ -223,30 +231,66 @@ export const disegnaModellaSuPDF = async (
   const getDimensioniSlot = (slotName: string): { w: number, h: number } => {
     const l = layout || "classic";
     if (l === "classic") {
-      return { w: 84, h: 114 };
+      return { w: 87, h: 125 };
     }
     if (l === "duo") {
-      return { w: 129, h: 114 };
+      return { w: 132, h: 125 };
     }
     if (l === "asymmetric-left") {
-      if (slotName === "Left") return { w: 131, h: 114 };
-      return { w: 131, h: 54.5 };
+      if (slotName === "Left") return { w: 132, h: 125 };
+      return { w: 132, h: 55 };
     }
     if (l === "solo") {
-      return { w: 160, h: 114 };
+      return { w: 269, h: 125 };
     }
     if (l === "grid-4") {
-      return { w: 131, h: 54.5 };
+      return { w: 132, h: 55 };
     }
     if (l === "grid-6") {
-      return { w: 84, h: 54.5 };
+      return { w: 87, h: 55 };
     }
     if (l === "editorial-6") {
       if (slotName === "Left") return { w: 74, h: 125 };
       if (slotName === "Center") return { w: 56, h: 125 };
       return { w: 38, h: 55.5 };
     }
-    return { w: 84, h: 114 };
+    if (l === "grid-10") {
+      return { w: 52, h: 61 };
+    }
+    if (l === "cinematic-2") {
+      return { w: 183, h: 61 };
+    }
+    if (l === "campaign-2") {
+      return { w: 131, h: 115 };
+    }
+    if (l === "campaign-2-portrait") {
+      return { w: 125, h: 140 };
+    }
+    if (l === "campaign-wedding") {
+      if (slotName === "Left") return { w: 131, h: 115 };
+      return { w: 100, h: 85 };
+    }
+    if (l === "campaign-3") {
+      if (slotName === "Left") return { w: 76, h: 138 };
+      if (slotName === "Center") return { w: 76, h: 67.5 };
+      return { w: 76, h: 67.5 }; // Right photo is bottom center
+    }
+    if (l === "campaign-seamless") {
+      return { w: 133.5, h: 140 };
+    }
+    if (l === "campaign-tvc") {
+      return { w: 122, h: 68.6 };
+    }
+    if (l === "campaign-tvc-4") {
+      return { w: 116, h: 65.25 };
+    }
+    if (l === "campaign-brand-6") {
+      return { w: 44, h: 58 };
+    }
+    if (l === "campaign-solo") {
+      return { w: 150, h: 135 };
+    }
+    return { w: 87, h: 125 };
   };
 
   const promsElaborate = [
@@ -298,73 +342,136 @@ export const disegnaModellaSuPDF = async (
       resolvedDati?.offsetX6,
       resolvedDati?.offsetY6
     ),
+    elaboraImmagineCover(
+      foto7, 
+      getDimensioniSlot("image7").w, 
+      getDimensioniSlot("image7").h,
+      resolvedDati?.zoom7,
+      resolvedDati?.offsetX7,
+      resolvedDati?.offsetY7
+    ),
+    elaboraImmagineCover(
+      foto8, 
+      getDimensioniSlot("image8").w, 
+      getDimensioniSlot("image8").h,
+      resolvedDati?.zoom8,
+      resolvedDati?.offsetX8,
+      resolvedDati?.offsetY8
+    ),
+    elaboraImmagineCover(
+      foto9, 
+      getDimensioniSlot("image9").w, 
+      getDimensioniSlot("image9").h,
+      resolvedDati?.zoom9,
+      resolvedDati?.offsetX9,
+      resolvedDati?.offsetY9
+    ),
+    elaboraImmagineCover(
+      foto10, 
+      getDimensioniSlot("image10").w, 
+      getDimensioniSlot("image10").h,
+      resolvedDati?.zoom10,
+      resolvedDati?.offsetX10,
+      resolvedDati?.offsetY10
+    ),
   ];
 
   const immaginiElaborate = await Promise.all(promsElaborate);
 
-  // Agency Header Big
-  pdf.setTextColor(3, 7, 18);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(26);
-  pdf.text("COSMOPOLITAN", 15, 18);
-  
-  pdf.setTextColor(190, 24, 74); // Bordeaux
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(7.5);
-  pdf.text("moda e v e n t i p u b b l i c i t à c o m u n i c a z i o n e", 15, 22);
-
-  // Model Name Right
-  pdf.setTextColor(3, 7, 18);
-  pdf.setFont("helvetica", "italic");
-  pdf.setFontSize(28);
-  pdf.text(nomeModella, 282, 18, { align: "right" });
-
-  pdf.setTextColor(75, 85, 99);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(8);
-  const cardTitle = resolvedDati?.title || "PORTRAIT / THREE-QUARTERS / FULL BODY MODELS";
-  pdf.text(cardTitle.toUpperCase(), 15, 29);
-  
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(7);
-  const agencyName = agency?.name || "COSMOPOLITAN AGENCY";
-  const agencyPhone = agency?.phone || "333.59.64.357";
-  const agencyAddress = agency?.address || "VIA DELLA REPUBBLICA N°61";
-  const agencyCity = agency?.city || "BISCEGLIE (BT) 76011";
-  const agencyEmail = agency?.email || "info@cosmopolitanagency.it";
-  const agencyWeb = agency?.web || "www.cosmopolitanagency.it";
-  const portfolioDate = agency?.portfolioDate || "2026/27";
-
-  pdf.text(`${agencyName.toUpperCase()} • MODELLI ITALIA • TEL. ${agencyPhone}`, 15, 33);
-  pdf.text(`${agencyAddress.toUpperCase()} • ${agencyCity.toUpperCase()}`, 15, 37);
-  
-  pdf.setTextColor(29, 78, 216); // Blu elegante
-  pdf.text(`${agencyEmail} • ${agencyWeb}`, 15, 41);
-
-  pdf.setTextColor(107, 114, 128);
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(7.5);
-  pdf.text(`MODEL PORTFOLIO INDEX • ${portfolioDate}`, 282, 24, { align: "right" });
-
-  // Social icons click links
-  if (socialScelti.length > 0) {
-    const sizeIcona = 4.2;
-    const spaziaturaIcona = 1.8;
-    const larghezzaTotale = (socialScelti.length * sizeIcona) + ((socialScelti.length - 1) * spaziaturaIcona);
-    let xCorrente = 282 - larghezzaTotale;
-    const yIcone = 27;
-
-    for (const social of socialScelti) {
-      pdf.addImage(social.base64, "PNG", xCorrente, yIcone, sizeIcona, sizeIcona);
-      pdf.link(xCorrente, yIcone, sizeIcona, sizeIcona, { url: social.url });
-      xCorrente += sizeIcona + spaziaturaIcona;
-    }
+  // For Royal Enfield 3x2, draw the grey background rect first so that the header sits on top of it
+  if (layout === "campaign-brand-6") {
+    pdf.setFillColor(230, 230, 230);
+    pdf.rect(179, 0, 118, 210, "F");
   }
 
-  // Thin split line
-  pdf.setDrawColor(3, 7, 18);
-  pdf.setLineWidth(0.4);
-  pdf.line(15, 45, 282, 45);
+  if (layout === "campaign-solo") {
+    // Single elegant centered Campaign title on top
+    pdf.setTextColor(3, 7, 18);
+    pdf.setFont("times", "bold");
+    pdf.setFontSize(26);
+    pdf.text((resolvedDati?.campaignName || "CONDÉ NAST").toUpperCase(), 148.5, 23, { align: "center" });
+  } else {
+    // Agency Header Big
+    if (!resolvedDati?.hideHeaderLogo) {
+      pdf.setTextColor(3, 7, 18);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(26);
+      pdf.text("COSMOPOLITAN", 15, 18);
+      
+      pdf.setTextColor(190, 24, 74); // Bordeaux
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.5);
+      pdf.text("moda e v e n t i p u b b l i c i t à c o m u n i c a z i o n e", 15, 22);
+    }
+
+    // Model Name Right
+    if (!resolvedDati?.hideHeaderName) {
+      pdf.setTextColor(3, 7, 18);
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(28);
+      pdf.text(nomeModella, 282, 18, { align: "right" });
+    }
+
+    if (!resolvedDati?.hideHeaderCategory) {
+      pdf.setTextColor(75, 85, 99);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8);
+      const cardTitle = resolvedDati?.title || "PORTRAIT / THREE-QUARTERS / FULL BODY MODELS";
+      pdf.text(cardTitle.toUpperCase(), 15, 29);
+    }
+    
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    const agencyName = agency?.name || "COSMOPOLITAN AGENCY";
+    const agencyPhone = agency?.phone || "333.59.64.357";
+    const agencyAddress = agency?.address || "VIA DELLA REPUBBLICA N°61";
+    const agencyCity = agency?.city || "BISCEGLIE (BT) 76011";
+    const agencyEmail = agency?.email || "info@cosmopolitanagency.it";
+    const agencyWeb = agency?.web || "www.cosmopolitanagency.it";
+    const portfolioDate = agency?.portfolioDate || "2026/27";
+
+    if (!resolvedDati?.hideHeaderContacts1) {
+      pdf.setTextColor(75, 85, 99);
+      pdf.text(`${agencyName.toUpperCase()} • MODELLI ITALIA • TEL. ${agencyPhone}`, 15, 33);
+    }
+    if (!resolvedDati?.hideHeaderContacts2) {
+      pdf.setTextColor(75, 85, 99);
+      pdf.text(`${agencyAddress.toUpperCase()} • ${agencyCity.toUpperCase()}`, 15, 37);
+    }
+    if (!resolvedDati?.hideHeaderContacts3) {
+      pdf.setTextColor(29, 78, 216); // Blu elegante
+      pdf.text(`${agencyEmail} • ${agencyWeb}`, 15, 41);
+    }
+
+    if (!resolvedDati?.hideHeaderIndex) {
+      pdf.setTextColor(107, 114, 128);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.5);
+      pdf.text(`MODEL PORTFOLIO INDEX • ${portfolioDate}`, 282, 24, { align: "right" });
+    }
+
+    // Social icons click links
+    if (socialScelti.length > 0 && !resolvedDati?.hideSocialIcons) {
+      const sizeIcona = 4.2;
+      const spaziaturaIcona = 1.8;
+      const larghezzaTotale = (socialScelti.length * sizeIcona) + ((socialScelti.length - 1) * spaziaturaIcona);
+      let xCorrente = 282 - larghezzaTotale;
+      const yIcone = 27;
+
+      for (const social of socialScelti) {
+        pdf.addImage(social.base64, "PNG", xCorrente, yIcone, sizeIcona, sizeIcona);
+        pdf.link(xCorrente, yIcone, sizeIcona, sizeIcona, { url: social.url });
+        xCorrente += sizeIcona + spaziaturaIcona;
+      }
+    }
+
+    // Thin split line
+    if (layout !== "campaign-3" && layout !== "campaign-brand-6" && layout !== "campaign-tvc" && layout !== "campaign-tvc-4") {
+      pdf.setDrawColor(3, 7, 18);
+      pdf.setLineWidth(0.4);
+      pdf.line(15, 45, 282, 45);
+    }
+  }
 
   const drawImageWithPlaceholder = (imgData: string | null, x: number, y: number, w: number, h: number, defaultTerm: string) => {
     pdf.setDrawColor(229, 231, 235);
@@ -373,6 +480,30 @@ export const disegnaModellaSuPDF = async (
 
     if (imgData) {
       pdf.addImage(imgData, "JPEG", x, y, w, h);
+      
+      // Draw dynamic diagonal watermark if requested
+      if (resolvedDati?.showWatermark) {
+        const watermarkLabel = (resolvedDati.watermarkText || nomeModella || "COSMOPOLITAN").toUpperCase();
+        const centerX = x + (w / 2);
+        const centerY = y + (h / 2);
+        const originalFont = pdf.getFont().fontName;
+        const originalFontSize = pdf.getFontSize();
+        
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(Math.max(8, Math.min(15, w * 0.16)));
+        
+        // Shadow (Dark charcoal)
+        pdf.setTextColor(60, 60, 60);
+        pdf.text(watermarkLabel, centerX + 0.3, centerY + 0.3, { angle: -30, align: "center" });
+        
+        // Front (Light white/gray overlay for high contrast)
+        pdf.setTextColor(245, 245, 245);
+        pdf.text(watermarkLabel, centerX, centerY, { angle: -30, align: "center" });
+        
+        // Restoring previous font settings
+        pdf.setFont(originalFont, "normal");
+        pdf.setFontSize(originalFontSize);
+      }
     } else {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8);
@@ -431,11 +562,11 @@ export const disegnaModellaSuPDF = async (
     drawLabel("FULL BODY", 151, yFoto + hRight * 2 + 9, wRight);
 
   } else if (layout === "solo") {
-    const w = 160;
-    const h = 114;
+    const w = 269;
+    const h = 125;
     const x = (297 - w) / 2;
     drawImageWithPlaceholder(immaginiElaborate[1] || immaginiElaborate[0], x, yFoto, w, h, "Solo Portrait");
-    drawLabel("CLOSE UP / ARTISTIC PORTRAIT", x, yFoto + h + 5, w);
+    drawLabel("PORTFOLIO STAR PIECE", x, yFoto + h + 4, w);
 
   } else if (layout === "grid-4") {
     const w = 131;
@@ -470,6 +601,23 @@ export const disegnaModellaSuPDF = async (
       drawLabel(etichette[c], colsX[c], yFoto + h + 4, w);
       drawLabel(etichette[c + 3], colsX[c], yFoto + h * 2 + 9, w);
     }
+
+  } else if (layout === "grid-10") {
+    const w = 52;
+    const h = 61;
+    const colsX = [15, 69.5, 124, 178.5, 233];
+    
+    drawImageWithPlaceholder(immaginiElaborate[0], colsX[0], yFoto, w, h, "Foto 1");
+    drawImageWithPlaceholder(immaginiElaborate[1], colsX[1], yFoto, w, h, "Foto 2");
+    drawImageWithPlaceholder(immaginiElaborate[2], colsX[2], yFoto, w, h, "Foto 3");
+    drawImageWithPlaceholder(immaginiElaborate[3], colsX[3], yFoto, w, h, "Foto 4");
+    drawImageWithPlaceholder(immaginiElaborate[4], colsX[4], yFoto, w, h, "Foto 5");
+
+    drawImageWithPlaceholder(immaginiElaborate[5], colsX[0], yFoto + h + 3.5, w, h, "Foto 6");
+    drawImageWithPlaceholder(immaginiElaborate[6], colsX[1], yFoto + h + 3.5, w, h, "Foto 7");
+    drawImageWithPlaceholder(immaginiElaborate[7], colsX[2], yFoto + h + 3.5, w, h, "Foto 8");
+    drawImageWithPlaceholder(immaginiElaborate[8], colsX[3], yFoto + h + 3.5, w, h, "Foto 9");
+    drawImageWithPlaceholder(immaginiElaborate[9], colsX[4], yFoto + h + 3.5, w, h, "Foto 10");
 
   } else if (layout === "editorial-6") {
     const wLeft = 74;
@@ -546,62 +694,598 @@ export const disegnaModellaSuPDF = async (
 
     pdf.line(92 + 21, dyText + 2, 92 + 29, dyText + 2);
     pdf.line(92 + 25, dyText, 92 + 25, dyText + 5);
+  } else if (layout === "cinematic-2") {
+    // Top image: imageLeft
+    // Bottom image: imageCenter
+    const wCine = 183;
+    const hCine = 61;
+    const xCine = 99;
+    const yTop = yFoto;
+    const yBottom = yFoto + hCine + 3; // 3mm gap
+
+    drawImageWithPlaceholder(immaginiElaborate[0], xCine, yTop, wCine, hCine, "Foto Cinemica Alto");
+    drawImageWithPlaceholder(immaginiElaborate[1], xCine, yBottom, wCine, hCine, "Foto Cinemica Basso");
+
+    // Left Column Specs drawing
+    pdf.setDrawColor(3, 7, 18);
+    pdf.setLineWidth(0.4);
+    pdf.line(37, 75, 73, 75);
+    
+    pdf.setTextColor(3, 7, 18);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(19);
+    const displayName = nomeModella.length > 15 ? nomeModella.substring(0, 15) + "..." : nomeModella;
+    pdf.text(displayName, 55, 83, { align: "center" });
+
+    pdf.line(37, 88, 73, 88);
+
+    // Top inverted T motif Centered at 55
+    pdf.setDrawColor(120, 120, 120);
+    pdf.line(55, 95, 55, 101);
+    pdf.line(51, 98, 59, 98);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(15, 23, 42);
+
+    const outputFtIn = (cmStr: string) => {
+      const cm = parseFloat(cmStr);
+      if (isNaN(cm)) return "";
+      const totIn = cm / 2.54;
+      const ft = Math.floor(totIn / 12);
+      const _inch = Math.round((totIn % 12) * 2) / 2;
+      return `${ft}'${_inch}"`;
+    };
+
+    const outputInches = (cmStr: string) => {
+      const cm = parseFloat(cmStr);
+      if (isNaN(cm)) return "";
+      return `${Math.round(cm / 2.54)}"`;
+    };
+
+    const details = [
+      `Height : ${resolvedAltezza} ${altezza !== "—" ? "/ " + outputFtIn(String(altezza)) : ""}`,
+      `Bust ${resolvedSeno} ${seno !== "—" ? "/ " + outputInches(String(seno)) : ""}`,
+      `Waist ${resolvedVita} ${vita !== "—" ? "/ " + outputInches(String(vita)) : ""}`,
+      `Hips ${resolvedFianchi} ${fianchi !== "—" ? "/ " + outputInches(String(fianchi)) : ""}`,
+      resolvedScarpe !== "—" ? `Shoe: ${resolvedScarpe}` : "",
+      resolvedCapelli !== "—" ? `${resolvedCapelli} Hair` : "",
+      resolvedOcchi !== "—" ? `${resolvedOcchi} Eyes` : ""
+    ].filter(Boolean);
+
+    let dyText = 108;
+    details.forEach(text => {
+      pdf.text(text, 55, dyText, { align: "center" });
+      dyText += 5.5;
+    });
+
+    // Bottom T motif
+    pdf.line(51, dyText + 2, 59, dyText + 2);
+    pdf.line(55, dyText, 55, dyText + 5);
+  } else if (layout === "campaign-2") {
+    // Left image: imageLeft (index 0)
+    // Right image: imageCenter (index 1)
+    const wCamp = 131;
+    const hCamp = 115;
+    const xLeft = 15;
+    const xRight = 151;
+    const yPos = yFoto;
+
+    drawImageWithPlaceholder(immaginiElaborate[0], xLeft, yPos, wCamp, hCamp, "Foto Campagna Sinistra");
+    drawImageWithPlaceholder(immaginiElaborate[1], xRight, yPos, wCamp, hCamp, "Foto Campagna Destra");
+
+    // Centered caption text at bottom
+    pdf.setTextColor(3, 7, 18);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    const labelText = customCaption 
+      ? customCaption.toUpperCase() 
+      : (campaignName 
+          ? (nomeModella ? `${nomeModella.toUpperCase()} FOR ${campaignName.toUpperCase()}` : `MODEL FOR ${campaignName.toUpperCase()}`)
+          : (nomeModella ? `${nomeModella.toUpperCase()} CAMPAIGN` : "MODEL CAMPAIGN"));
+    pdf.text(labelText, 148.5, yPos + hCamp + 9, { align: "center" });
+  } else if (layout === "campaign-2-portrait") {
+    // Left image: imageLeft (index 0)
+    // Right image: imageCenter (index 1)
+    // Vertical/portrait campaign photos side-by-side with a beautiful spacing and colored background container
+    
+    // 1. Draw beautiful colored background container first
+    let r = 226, g = 232, b = 240; // Default silver
+    if (parsedThemeColor === "charcoal") {
+      r = 51; g = 65; b = 85;
+    } else if (parsedThemeColor === "beige") {
+      r = 245; g = 245; b = 220;
+    } else if (parsedThemeColor === "gold") {
+      r = 250; g = 247; b = 240;
+    } else if (parsedThemeColor === "white") {
+      r = 255; g = 255; b = 255;
+    }
+    pdf.setFillColor(r, g, b);
+    pdf.rect(15, 45, 267, 135, "F");
+
+    // Redraw the header split line to make sure it's on top of the background backplate
+    pdf.setDrawColor(3, 7, 18);
+    pdf.setLineWidth(0.45);
+    pdf.line(15, 45, 282, 45);
+
+    // 2. Draw white frames and images inside
+    // Keep exact 125/140 aspect ratio (which is 100/112) to match getDimensioniSlot perfectly and prevent stretch/distortion.
+    const wCamp = 100;
+    const hCamp = 112;
+    const yPos = 49;
+    const xLeft = 42.5;
+    const xRight = 154.5;
+
+    // Left White Card Frame block (matches web shadow & bg-white p-1 hover styling)
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(xLeft - 1.5, yPos - 1.5, wCamp + 3, hCamp + 3, "F");
+    pdf.setDrawColor(204, 212, 222);
+    pdf.setLineWidth(0.2);
+    pdf.rect(xLeft - 1.5, yPos - 1.5, wCamp + 3, hCamp + 3, "S");
+
+    // Left Image
+    drawImageWithPlaceholder(immaginiElaborate[0], xLeft, yPos, wCamp, hCamp, "Foto Campagna Sinistra");
+
+    // Right White Card Frame block
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(xRight - 1.5, yPos - 1.5, wCamp + 3, hCamp + 3, "F");
+    pdf.setDrawColor(204, 212, 222);
+    pdf.setLineWidth(0.2);
+    pdf.rect(xRight - 1.5, yPos - 1.5, wCamp + 3, hCamp + 3, "S");
+
+    // Right Image
+    drawImageWithPlaceholder(immaginiElaborate[1], xRight, yPos, wCamp, hCamp, "Foto Campagna Destra");
+
+    // 3. Draw elegant spacer line & Campaign caption at bottom of backplate
+    pdf.setDrawColor(180, 190, 201);
+    pdf.setLineWidth(0.35);
+    pdf.line(148.5 - 35, 167, 148.5 + 35, 167);
+
+    // Centered caption text at bottom
+    pdf.setTextColor(3, 7, 18);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    const labelText = customCaption 
+      ? customCaption.toUpperCase() 
+      : (campaignName 
+          ? (nomeModella ? `${nomeModella.toUpperCase()} FOR ${campaignName.toUpperCase()}` : `MODEL FOR ${campaignName.toUpperCase()}`)
+          : (nomeModella ? `${nomeModella.toUpperCase()} CAMPAIGN` : "MODEL CAMPAIGN"));
+    pdf.text(labelText, 148.5, 174, { align: "center" });
+  } else if (layout === "campaign-wedding") {
+    // Left image: imageLeft (index 0)
+    // Right image: imageCenter (index 1)
+    const wCamp = 131;
+    const hCamp = 115;
+    const xLeft = 15;
+    const xRight = 151;
+    const yPos = yFoto;
+
+    // Draw Left Image (standard, clean white canvas style padding)
+    drawImageWithPlaceholder(immaginiElaborate[0], xLeft, yPos, wCamp, hCamp, "Foto Campagna Sinistra");
+
+    // Draw Right Container - Beautiful Watercolor/Marble Frame Background
+    // Color #faf9f6 - a light bone white/soft linen cream tone
+    pdf.setFillColor(248, 247, 244);
+    pdf.rect(xRight, yPos, wCamp, hCamp, "F");
+
+    // Inner elegant decorative thin stone-border inside the marble frame
+    pdf.setDrawColor(218, 214, 206);
+    pdf.setLineWidth(0.3);
+    pdf.rect(xRight + 2.5, yPos + 2.5, wCamp - 5, hCamp - 5, "S");
+
+    // Center the 100x85 portrait image perfectly inside the 131x115 container
+    // horizontal center = 151 + 65.5 = 216.5 -> xInner = 216.5 - 50 = 166.5
+    // vertical center = 50 + 57.5 = 107.5 -> yInner = 107.5 - 42.5 = 65
+    const xInner = 166.5;
+    const yInner = 65;
+
+    // Draw Right Image in its picture mount
+    drawImageWithPlaceholder(immaginiElaborate[1], xInner, yInner, 100, 85, "Foto Campagna Destra");
+
+    // Clean, sharp black border around the inner picture mount
+    pdf.setDrawColor(3, 7, 18);
+    pdf.setLineWidth(0.4);
+    pdf.rect(xInner, yInner, 100, 85, "S");
+
+    // Centered caption underneath: e.g. "ROBERTA FOR WEDDING ASIA"
+    pdf.setTextColor(3, 7, 18);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    
+    const clientText = campaignName || "WEDDING ASIA";
+    const labelText = customCaption 
+      ? customCaption.toUpperCase() 
+      : (nomeModella ? `${nomeModella.toUpperCase()} FOR ${clientText.toUpperCase()}` : `MODEL FOR ${clientText.toUpperCase()}`);
+    pdf.text(labelText, 148.5, yPos + hCamp + 14, { align: "center" });
+
+    // Elegant separator line above the caption
+    pdf.setDrawColor(212, 212, 216);
+    pdf.setLineWidth(0.3);
+    const textWidth = pdf.getTextWidth(labelText) + 20; // 20mm wider than the text
+    pdf.line(148.5 - textWidth/2, yPos + hCamp + 7, 148.5 + textWidth/2, yPos + hCamp + 7);
+  } else if (layout === "campaign-3") {
+    // Left image: imageLeft (index 0)
+    // Center Top image: imageCenter (index 1)
+    // Center Bottom image: imageRight (index 2)
+    const yStart = 50;
+
+    // Draw Left Image (tall vertical)
+    drawImageWithPlaceholder(immaginiElaborate[0], 15, yStart, 76, 138, "Foto Sinistra");
+
+    // Draw Center Column Top Image
+    drawImageWithPlaceholder(immaginiElaborate[1], 97, yStart, 76, 67.5, "Foto Centro Alto");
+
+    // Draw Center Column Bottom Image
+    drawImageWithPlaceholder(immaginiElaborate[2], 97, yStart + 67.5 + 3, 76, 67.5, "Foto Centro Basso");
+
+    // Space of right column is centered around x = 227.5mm
+    const xRightCenter = 227.5;
+
+    // Split campaign name into two elegant lines for the header
+    let clientTitleLine1 = "ROYAL ENFIELD";
+    let clientTitleLine2 = "CAMPAIGN";
+    if (campaignName) {
+      if (campaignName.includes("|")) {
+        const parts = campaignName.split("|");
+        clientTitleLine1 = parts[0].trim();
+        clientTitleLine2 = parts.slice(1).join(" ").trim();
+      } else {
+        const parts = campaignName.trim().split(/\s+/);
+        if (parts.length > 1) {
+          clientTitleLine1 = parts.slice(0, parts.length - 1).join(" ");
+          clientTitleLine2 = parts[parts.length - 1];
+        } else {
+          clientTitleLine1 = parts[0];
+          clientTitleLine2 = "CAMPAIGN";
+        }
+      }
+    }
+
+    // Render Brand / Campaign Title
+    pdf.setTextColor(3, 7, 18);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    pdf.text(clientTitleLine1, xRightCenter, 38 + 18, { align: "center" });
+    pdf.text(clientTitleLine2, xRightCenter, 45 + 18, { align: "center" });
+
+    // Elegant Divider above model name
+    pdf.setDrawColor(212, 212, 216);
+    pdf.setLineWidth(0.35);
+    pdf.line(xRightCenter - 25, 68 + 18, xRightCenter + 25, 68 + 18);
+
+    // Spaced-out high-fashion name using "times" (serif font)
+    const spacedName = nomeModella.split("").join("   ");
+    pdf.setFont("times", "normal");
+    pdf.setFontSize(21);
+    pdf.text(spacedName, xRightCenter, 77 + 18, { align: "center" });
+
+    // Elegant Divider below model name
+    pdf.line(xRightCenter - 25, 84 + 18, xRightCenter + 25, 84 + 18);
+
+    // Downward-pointing T motif (centered in right block)
+    pdf.setDrawColor(3, 7, 18);
+    pdf.setLineWidth(0.45);
+    pdf.line(xRightCenter, 92 + 18, xRightCenter, 105 + 18); // vertical
+    pdf.line(xRightCenter - 7, 105 + 18, xRightCenter + 7, 105 + 18); // baseline
+
+    // Formatted measurements
+    const outputFtIn = (cmStr: string) => {
+      const cm = parseFloat(cmStr);
+      if (isNaN(cm)) return "";
+      const totIn = cm / 2.54;
+      const ft = Math.floor(totIn / 12);
+      const _inch = Math.round((totIn % 12) * 2) / 2;
+      return `${ft}'${_inch}"`;
+    };
+
+    const outputInches = (cmStr: string) => {
+      const cm = parseFloat(cmStr);
+      if (isNaN(cm)) return "";
+      return `${Math.round(cm / 2.54)}"`;
+    };
+
+    const details = [
+      `Height : ${resolvedAltezza} ${altezza !== "—" ? "/ " + outputFtIn(String(altezza)) : ""}`,
+      `Bust ${resolvedSeno} ${seno !== "—" ? "/ " + outputInches(String(seno)) : ""}`,
+      `Waist ${resolvedVita} ${vita !== "—" ? "/ " + outputInches(String(vita)) : ""}`,
+      `Hips ${resolvedFianchi} ${fianchi !== "—" ? "/ " + outputInches(String(fianchi)) : ""}`,
+      resolvedScarpe !== "—" ? `Shoes : ${resolvedScarpe}` : "",
+      resolvedCapelli !== "—" ? `${resolvedCapelli} Hair` : "",
+      resolvedOcchi !== "—" ? `${resolvedOcchi} Eyes` : ""
+    ].filter(Boolean);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(15, 23, 42);
+
+    let dyText = 113 + 18;
+    details.forEach(text => {
+      pdf.text(text, xRightCenter, dyText, { align: "center" });
+      dyText += 5.5;
+    });
+
+    // Upward-pointing T motif
+    pdf.setDrawColor(3, 7, 18);
+    pdf.setLineWidth(0.45);
+    pdf.line(xRightCenter - 7, dyText + 1, xRightCenter + 7, dyText + 1); // target line
+    pdf.line(xRightCenter, dyText + 1, xRightCenter, dyText + 11); // vertical line
+  } else if (layout === "campaign-seamless") {
+    // Two landscape photos side-by-side with absolutely NO space between them, touching perfectly at the center
+    // Width: 133.5mm each, Height: 140mm
+    // Center alignment vertically: yPos = 35mm (leaving 35mm margin top and bottom on 210mm A4 height)
+    const wCamp = 133.5;
+    const hCamp = 140;
+    const xLeft = 15;
+    const xRight = 148.5; // 15 + 133.5
+    const yPos = 35;
+
+    // Draw Lefthand Image (completely borderless and seamless)
+    drawImageWithPlaceholder(immaginiElaborate[0], xLeft, yPos, wCamp, hCamp, "Foto Campagna Orizzontale Sinistra");
+
+    // Draw Righthand Image (touches the left image perfectly)
+    drawImageWithPlaceholder(immaginiElaborate[1], xRight, yPos, wCamp, hCamp, "Foto Campagna Orizzontale Destra");
+  } else if (layout === "campaign-tvc") {
+    // 3 Video Still Showcase Layout (movie/tvc presentation)
+    const wStill = 122;
+    const hStill = 68.6;
+    
+    const xLeft = 19;
+    const xRight = 156;
+    const xBottom = 87.5;
+    
+    const yTop = 55;
+    const yBottom = 136;
+    
+    // Draw Top-Left Image
+    drawImageWithPlaceholder(immaginiElaborate[0], xLeft, yTop, wStill, hStill, "Video Still 1");
+    // Draw Top-Right Image
+    drawImageWithPlaceholder(immaginiElaborate[1], xRight, yTop, wStill, hStill, "Video Still 2");
+    // Draw Bottom-Center Image
+    drawImageWithPlaceholder(immaginiElaborate[2], xBottom, yBottom, wStill, hStill, "Video Still 3");
+
+    // Let's draw high-fashion texts above each still image
+    // Sans-serif font (helvetica)
+    const modelLabel = nomeModella || "MODEL";
+    
+    // Title 1
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(107, 114, 128); // medium cool gray
+    pdf.text(`${modelLabel} FEATURED IN`, xLeft + wStill / 2, yTop - 6.5, { align: "center" });
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39); // deep slate/black
+    pdf.text(resolvedDati?.tvcLabelLeft || "MAHINDRA TVC", xLeft + wStill / 2, yTop - 1.5, { align: "center" });
+    
+    // Title 2
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(107, 114, 128);
+    pdf.text(`${modelLabel} FEATURED IN`, xRight + wStill / 2, yTop - 6.5, { align: "center" });
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(resolvedDati?.tvcLabelCenter || "TATA HOUSING TVC", xRight + wStill / 2, yTop - 1.5, { align: "center" });
+    
+    // Title 3
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(107, 114, 128);
+    pdf.text(`${modelLabel} FEATURED IN`, xBottom + wStill / 2, yBottom - 6.5, { align: "center" });
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(resolvedDati?.tvcLabelRight || "KERALA TOURISM TVC", xBottom + wStill / 2, yBottom - 1.5, { align: "center" });
+  } else if (layout === "campaign-tvc-4") {
+    // 4 Video Still Showcase Layout (movie/tvc 2x2 presentation) with standard header
+    const wStill = 116;
+    const hStill = 65.25;
+    
+    const xLeft = 26.5;
+    const xRight = 154.5;
+    
+    const yTop = 54;
+    const yBottom = 127.25;
+    
+    // Draw Row 1 Stills
+    drawImageWithPlaceholder(immaginiElaborate[0], xLeft, yTop, wStill, hStill, "Video Still 1");
+    drawImageWithPlaceholder(immaginiElaborate[1], xRight, yTop, wStill, hStill, "Video Still 2");
+    
+    // Draw Row 2 Stills
+    drawImageWithPlaceholder(immaginiElaborate[2], xLeft, yBottom, wStill, hStill, "Video Still 3");
+    drawImageWithPlaceholder(immaginiElaborate[3], xRight, yBottom, wStill, hStill, "Video Still 4");
+
+    const modelLabel = nomeModella || "MODEL";
+    
+    // Titles for Top Row above images
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(107, 114, 128);
+    pdf.text(`${modelLabel} FEATURED IN`.toUpperCase(), xLeft + wStill / 2, yTop - 6.5, { align: "center" });
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(resolvedDati?.tvcLabelLeft || "OPPO RENO 2", xLeft + wStill / 2, yTop - 1.5, { align: "center" });
+    
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(107, 114, 128);
+    pdf.text(`${modelLabel} FEATURED IN`.toUpperCase(), xRight + wStill / 2, yTop - 6.5, { align: "center" });
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(resolvedDati?.tvcLabelCenter || "YARDLEY TVC", xRight + wStill / 2, yTop - 1.5, { align: "center" });
+    
+    // Titles for Bottom Row below images
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(107, 114, 128);
+    pdf.text(`${modelLabel} FEATURED IN`.toUpperCase(), xLeft + wStill / 2, yBottom + hStill + 5.5, { align: "center" });
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(resolvedDati?.tvcLabelRight || "VIVO TVC", xLeft + wStill / 2, yBottom + hStill + 10.5, { align: "center" });
+    
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(107, 114, 128);
+    pdf.text(`${modelLabel} FEATURED IN`.toUpperCase(), xRight + wStill / 2, yBottom + hStill + 5.5, { align: "center" });
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(resolvedDati?.tvcLabel4 || "SAMSONITE TVC", xRight + wStill / 2, yBottom + hStill + 10.5, { align: "center" });
+  } else if (layout === "campaign-solo") {
+    // Single centered square campaign image
+    const wCamp = 150;
+    const hCamp = 135;
+    const xPos = 73.5;
+    const yPos = 35;
+
+    // Draw Campaign Image
+    drawImageWithPlaceholder(immaginiElaborate[0], xPos, yPos, wCamp, hCamp, "Foto Campagna");
+
+    // Centered label text at bottom
+    pdf.setTextColor(3, 7, 18);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    const labelText = customCaption 
+      ? customCaption.toUpperCase() 
+      : (campaignName 
+          ? (nomeModella ? `${nomeModella.toUpperCase()} FOR ${campaignName.toUpperCase()}` : `MODEL FOR ${campaignName.toUpperCase()}`)
+          : (nomeModella ? `${nomeModella.toUpperCase()} CAMPAIGN` : "MODEL CAMPAIGN"));
+    pdf.text(labelText, 148.5, yPos + hCamp + 14, { align: "center" });
+
+    // Elegant separator line above the caption
+    pdf.setDrawColor(212, 212, 216);
+    pdf.setLineWidth(0.3);
+    const textWidth = pdf.getTextWidth(labelText) + 20; // 20mm wider than the text
+    pdf.line(148.5 - textWidth/2, yPos + hCamp + 7, 148.5 + textWidth/2, yPos + hCamp + 7);
+  } else if (layout === "campaign-brand-6") {
+    // ROYAL ENFIELD 3x2 Grid layout (6 vertical photos + centered branding labels on left)
+    
+    // 2. Draw Left Double Text Block
+    const xCenterText = 89.5; // (0 to 179 midpoint)
+    
+    // Top Block
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(21);
+    pdf.text(campaignName || "ROYAL ENFIELD", xCenterText, 80, { align: "center" });
+    pdf.setFontSize(17);
+    pdf.text(resolvedDati?.tvcLabelLeft || "CAMPAIGN", xCenterText, 91, { align: "center" });
+    
+    // Divider Line
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.65);
+    pdf.line(xCenterText - 42.5, 105, xCenterText + 42.5, 105);
+    
+    // Bottom Block
+    pdf.setFontSize(21);
+    pdf.text(customCaption || "ROYAL ENFIELD", xCenterText, 125, { align: "center" });
+    pdf.setFontSize(17);
+    pdf.text(resolvedDati?.tvcLabelCenter || "CAMPAIGN", xCenterText, 136, { align: "center" });
+    
+    // 3. Draw Right Side Image Grid: 3 columns, 2 rows
+    const wImg = 44;
+    const hImg = 58;
+    
+    const xCol1 = 133;
+    const xCol2 = 181;
+    const xCol3 = 229;
+    
+    const yRow1 = 44;
+    const yRow2 = 108;
+    
+    // Row 1
+    drawImageWithPlaceholder(immaginiElaborate[0], xCol1, yRow1, wImg, hImg, "Image 1");
+    drawImageWithPlaceholder(immaginiElaborate[1], xCol2, yRow1, wImg, hImg, "Image 2");
+    drawImageWithPlaceholder(immaginiElaborate[2], xCol3, yRow1, wImg, hImg, "Image 3");
+
+    // Row 2
+    drawImageWithPlaceholder(immaginiElaborate[3], xCol1, yRow2, wImg, hImg, "Image 4");
+    drawImageWithPlaceholder(immaginiElaborate[4], xCol2, yRow2, wImg, hImg, "Image 5");
+    drawImageWithPlaceholder(immaginiElaborate[5], xCol3, yRow2, wImg, hImg, "Image 6");
   }
 
-  if (layout !== "editorial-6") {
+  if (layout !== "editorial-6" && layout !== "cinematic-2" && layout !== "campaign-wedding" && layout !== "campaign-3" && layout !== "campaign-seamless" && layout !== "campaign-tvc" && layout !== "campaign-solo" && layout !== "campaign-tvc-4" && layout !== "campaign-brand-6") {
     const yBarra = 180;
     const altezzaBarra = 15;
-    pdf.setFillColor(3, 7, 18);
-    pdf.rect(15, yBarra, 267, altezzaBarra, "F");
 
-    const colonneDati = [
-      { t: "ALTEZZA/HEIGHT", v: resolvedAltezza, x: 20 },
-      { t: "SENO/BUST", v: resolvedSeno, x: 53 },
-      { t: "VITA/WAIST", v: resolvedVita, x: 86 },
-      { t: "FIANCHI/HIPS", v: resolvedFianchi, x: 119 },
-      { t: "SCARPE/SHOES", v: resolvedScarpe, x: 152 },
-      { t: "OCCHI/EYES", v: resolvedOcchi, x: 185 },
-      { t: "CAPELLI/HAIR", v: resolvedCapelli, x: 218 }
-    ];
+    if (!resolvedDati?.hideSpecsBar) {
+      pdf.setFillColor(3, 7, 18);
+      pdf.rect(15, yBarra, 267, altezzaBarra, "F");
 
-    colonneDati.forEach((col, idx) => {
+      const colonneDati = [
+        { t: "ALTEZZA/HEIGHT", v: resolvedAltezza, x: 20 },
+        { t: "SENO/BUST", v: resolvedSeno, x: 53 },
+        { t: "VITA/WAIST", v: resolvedVita, x: 86 },
+        { t: "FIANCHI/HIPS", v: resolvedFianchi, x: 119 },
+        { t: "SCARPE/SHOES", v: resolvedScarpe, x: 152 },
+        { t: "OCCHI/EYES", v: resolvedOcchi, x: 185 },
+        { t: "CAPELLI/HAIR", v: resolvedCapelli, x: 218 }
+      ];
+
+      colonneDati.forEach((col, idx) => {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(5.5);
+        pdf.setTextColor(156, 163, 175);
+        pdf.text(col.t, col.x, yBarra + 5);
+        
+        pdf.setFont("helvetica", "bold");
+        let currentFontSize = 8;
+        pdf.setFontSize(currentFontSize);
+        
+        // Calculate max width before overlapping next column
+        const maxWidth = idx === colonneDati.length - 1 ? 28 : 29;
+        while (pdf.getTextWidth(col.v) > maxWidth && currentFontSize > 4.5) {
+          currentFontSize -= 0.5;
+          pdf.setFontSize(currentFontSize);
+        }
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(col.v, col.x, yBarra + 11);
+      });
+
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(5.5);
       pdf.setTextColor(156, 163, 175);
-      pdf.text(col.t, col.x, yBarra + 5);
+      pdf.text("TAGLIA S/I SIZE", 251, yBarra + 5);
       
       pdf.setFont("helvetica", "bold");
-      let currentFontSize = 8;
-      pdf.setFontSize(currentFontSize);
+      let tagliaFontSize = 8;
+      pdf.setFontSize(tagliaFontSize);
       
-      // Calculate max width before overlapping next column (columns are spaced ~33mm, let's keep it safe at 28-29mm)
-      const maxWidth = idx === colonneDati.length - 1 ? 28 : 29;
-      while (pdf.getTextWidth(col.v) > maxWidth && currentFontSize > 4.5) {
-        currentFontSize -= 0.5;
-        pdf.setFontSize(currentFontSize);
+      const maxTagliaWidth = 26; // Safe printable width until the end
+      while (pdf.getTextWidth(resolvedTaglia) > maxTagliaWidth && tagliaFontSize > 4.5) {
+        tagliaFontSize -= 0.5;
+        pdf.setFontSize(tagliaFontSize);
       }
       
-      pdf.setTextColor(255, 255, 255);
-      pdf.text(col.v, col.x, yBarra + 11);
-    });
+      pdf.setTextColor(250, 204, 21);
+      pdf.text(resolvedTaglia, 251, yBarra + 11);
+    } else if (resolvedDati?.customFooterText) {
+      if (resolvedDati.customFooterWhiteBg) {
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(15, yBarra, 267, altezzaBarra, "F");
 
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(5.5);
-    pdf.setTextColor(156, 163, 175);
-    pdf.text("TAGLIA S/I SIZE", 251, yBarra + 5);
-    
-    pdf.setFont("helvetica", "bold");
-    let tagliaFontSize = 8;
-    pdf.setFontSize(tagliaFontSize);
-    
-    const maxTagliaWidth = 26; // Safe printable width until the end
-    while (pdf.getTextWidth(resolvedTaglia) > maxTagliaWidth && tagliaFontSize > 4.5) {
-      tagliaFontSize -= 0.5;
-      pdf.setFontSize(tagliaFontSize);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(9);
+        pdf.setTextColor(17, 24, 39);
+        
+        const cleanCustomText = resolvedDati.customFooterText.toUpperCase();
+        pdf.text(cleanCustomText, 148.5, yBarra + 9.5, { align: "center" });
+      } else {
+        pdf.setFillColor(3, 7, 18);
+        pdf.rect(15, yBarra, 267, altezzaBarra, "F");
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(9);
+        pdf.setTextColor(255, 255, 255);
+        
+        const cleanCustomText = resolvedDati.customFooterText.toUpperCase();
+        pdf.text(cleanCustomText, 148.5, yBarra + 9.5, { align: "center" });
+      }
     }
-    
-    pdf.setTextColor(250, 204, 21);
-    pdf.text(resolvedTaglia, 251, yBarra + 11);
   }
 };
 
@@ -696,6 +1380,7 @@ export const gestisciDownloadCatalogo = async (
     backCoverCitiesText?: string;
     backCoverFooterText?: string;
     fontFamily?: string;
+    themeColor?: "silver" | "charcoal" | "beige" | "gold" | "white";
   }
 ) => {
   try {
@@ -838,7 +1523,7 @@ export const gestisciDownloadCatalogo = async (
       } else {
         isFirstPage = false;
       }
-      await disegnaModellaSuPDF(pdf, datiModella, index, listaModelle.length, socialScelti, agency);
+      await disegnaModellaSuPDF(pdf, datiModella, index, listaModelle.length, socialScelti, agency, opzioni?.themeColor);
     }
 
     // --- 3. OUTRO BACK COVER PAGE ---
@@ -1943,7 +2628,7 @@ export default function App() {
         format: "a4"
       });
 
-      await disegnaModellaSuPDF(pdf, resolvedDati, 0, 1, socialScelti, agency);
+      await disegnaModellaSuPDF(pdf, resolvedDati, 0, 1, socialScelti, agency, themeColor);
 
       const nomeFattibile = (resolvedDati?.nome || resolvedDati?.name || "MARIA_V").replace(/\s+/g, "_");
       pdf.save(`Scheda_Composit_${nomeFattibile}.pdf`);
@@ -2016,7 +2701,8 @@ export default function App() {
           backCoverText: backCoverText || "",
           backCoverCitiesText,
           backCoverFooterText,
-          fontFamily
+          fontFamily,
+          themeColor
         }
       );
 

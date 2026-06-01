@@ -81,6 +81,10 @@ export const ModelForm: React.FC<ModelFormProps> = ({
   const file4Ref = useRef<HTMLInputElement>(null);
   const file5Ref = useRef<HTMLInputElement>(null);
   const file6Ref = useRef<HTMLInputElement>(null);
+  const file7Ref = useRef<HTMLInputElement>(null);
+  const file8Ref = useRef<HTMLInputElement>(null);
+  const file9Ref = useRef<HTMLInputElement>(null);
+  const file10Ref = useRef<HTMLInputElement>(null);
 
   // Form field changes
   const handleFieldChange = (field: keyof ModelData, value: string | number) => {
@@ -91,7 +95,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
   };
 
   // Helper for image recommended sizes
-  const getImageRecommendation = (slot: "Left" | "Center" | "Right" | "4" | "5" | "6", layout: string) => {
+  const getImageRecommendation = (slot: "Left" | "Center" | "Right" | "4" | "5" | "6" | "7" | "8" | "9" | "10", layout: string) => {
     const l = layout || "classic";
     if (l === "classic") {
       if (slot === "Left") {
@@ -140,6 +144,21 @@ export const ModelForm: React.FC<ModelFormProps> = ({
         return { minWidth: 1000, minHeight: 1400, orientation: "Verticale", ratio: "2:3", notes: "Foto verticale centrale accanto alle misure." };
       }
       return { minWidth: 1000, minHeight: 1400, orientation: "Verticale Standard", ratio: "2:3", notes: "Disposta nella griglia 2x2 sul lato destro." };
+    }
+    if (l === "cinematic-2") {
+      return { minWidth: 1920, minHeight: 650, orientation: "Cinematica Orizzontale", ratio: "3:1", notes: "Grande foto panoramica/orizzontale in formato 3:1." };
+    }
+    if (l === "campaign-2-portrait") {
+      return { minWidth: 1000, minHeight: 1200, orientation: "Verticale (Portrait)", ratio: "1:1.12", notes: "Grande foto di campagna verticale slanciata." };
+    }
+    if (l === "campaign-2" || l === "campaign-wedding" || l === "campaign-solo") {
+      return { minWidth: 1200, minHeight: 1000, orientation: "Orizzontale/Quadrata", ratio: "1.14:1", notes: "Grande foto di campagna o editoriale, formato quasi quadrato." };
+    }
+    if (l === "campaign-brand-6") {
+      return { minWidth: 1000, minHeight: 1333, orientation: "Verticale (Portrait)", ratio: "3:4", notes: "Foto verticale di campagna o ritratto, formato 3:4." };
+    }
+    if (l === "campaign-tvc" || l === "campaign-tvc-4") {
+      return { minWidth: 1920, minHeight: 1080, orientation: "Widescreen 16:9 (Still TVC)", ratio: "1.77:1 (16:9)", notes: "Still video o fotogramma in formato cinematografico 16:9." };
     }
     return { minWidth: 1000, minHeight: 1000, orientation: "Qualsiasi", ratio: "Flessibile", notes: "Usa foto ad alta definizione." };
   };
@@ -203,7 +222,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
   };
 
   // Image Upload handler (resizes & loads locally as Base64 so it can be exported to PDF)
-  const handleImageFileChange = async (slot: "Left" | "Center" | "Right" | "4" | "5" | "6", e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (slot: "Left" | "Center" | "Right" | "4" | "5" | "6" | "7" | "8" | "9" | "10", e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       try {
@@ -229,13 +248,17 @@ export const ModelForm: React.FC<ModelFormProps> = ({
   };
 
   // Trigger file click
-  const triggerImageUpload = (slot: "Left" | "Center" | "Right" | "4" | "5" | "6") => {
+  const triggerImageUpload = (slot: "Left" | "Center" | "Right" | "4" | "5" | "6" | "7" | "8" | "9" | "10") => {
     if (slot === "Left" && fileLeftRef.current) fileLeftRef.current.click();
     if (slot === "Center" && fileCenterRef.current) fileCenterRef.current.click();
     if (slot === "Right" && fileRightRef.current) fileRightRef.current.click();
     if (slot === "4" && file4Ref.current) file4Ref.current.click();
     if (slot === "5" && file5Ref.current) file5Ref.current.click();
     if (slot === "6" && file6Ref.current) file6Ref.current.click();
+    if (slot === "7" && file7Ref.current) file7Ref.current.click();
+    if (slot === "8" && file8Ref.current) file8Ref.current.click();
+    if (slot === "9" && file9Ref.current) file9Ref.current.click();
+    if (slot === "10" && file10Ref.current) file10Ref.current.click();
   };
 
   // Preset triggers
@@ -383,6 +406,137 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 />
               </div>
 
+              <div className="col-span-2">
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Campagna / Cliente / Editoriale (es. per layout Campagna)</label>
+                <input
+                  type="text"
+                  placeholder="es. WEDDING ASIA (apparirà come: NOME FOR WEDDING ASIA o sdoppiato con | per Touring)"
+                  value={model.campaignName || ""}
+                  onChange={(e) => handleFieldChange("campaignName", e.target.value.toUpperCase())}
+                  className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-slate-900 focus:border-transparent font-medium"
+                />
+              </div>
+
+              {(model.layout === "campaign-2" || model.layout === "campaign-2-portrait" || model.layout === "campaign-wedding" || model.layout === "campaign-seamless" || model.layout === "classic" || model.layout === "duo" || model.layout === "campaign-solo") && (
+                <div className="col-span-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-semibold text-slate-700 block">Didascalia Personalizzata (Sovrascrive tutto il testo predefinito in basso, es: NOME ... )</label>
+                    <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-sm font-semibold">Opzionale</span>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="es. MARIA V. FOR VOGUE ITALIA (lascia vuoto per usare il testo predefinito)"
+                    value={model.customCaption || ""}
+                    onChange={(e) => handleFieldChange("customCaption", e.target.value.toUpperCase())}
+                    className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-slate-900 focus:border-transparent font-medium placeholder:text-slate-400"
+                  />
+                </div>
+              )}
+
+              {(model.layout === "campaign-tvc" || model.layout === "campaign-tvc-4") && (
+                <div className="col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                  <span className="text-xs font-bold text-slate-800 uppercase block">Specifiche Layout TVC ({model.layout === "campaign-tvc-4" ? "4" : "3"} Video Still)</span>
+                  <div className={`grid grid-cols-1 ${model.layout === "campaign-tvc-4" ? "md:grid-cols-4" : "md:grid-cols-3"} gap-3`}>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Brand / TVC 1 (Top-Left)</label>
+                      <input
+                        type="text"
+                        placeholder="es. OPPO RENO 2"
+                        value={model.tvcLabelLeft || ""}
+                        onChange={(e) => handleFieldChange("tvcLabelLeft", e.target.value.toUpperCase())}
+                        className="w-full bg-white border border-slate-200 rounded-lg py-1.5 px-2.5 text-xs font-medium focus:outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Brand / TVC 2 (Top-Right)</label>
+                      <input
+                        type="text"
+                        placeholder="es. YARDLEY TVC"
+                        value={model.tvcLabelCenter || ""}
+                        onChange={(e) => handleFieldChange("tvcLabelCenter", e.target.value.toUpperCase())}
+                        className="w-full bg-white border border-slate-200 rounded-lg py-1.5 px-2.5 text-xs font-medium focus:outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Brand / TVC 3 (Bottom-Left)</label>
+                      <input
+                        type="text"
+                        placeholder="es. VIVO TVC"
+                        value={model.tvcLabelRight || ""}
+                        onChange={(e) => handleFieldChange("tvcLabelRight", e.target.value.toUpperCase())}
+                        className="w-full bg-white border border-slate-200 rounded-lg py-1.5 px-2.5 text-xs font-medium focus:outline-hidden"
+                      />
+                    </div>
+                    {model.layout === "campaign-tvc-4" && (
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">Brand / TVC 4 (Bottom-Right)</label>
+                        <input
+                          type="text"
+                          placeholder="es. SAMSONITE TVC"
+                          value={model.tvcLabel4 || ""}
+                          onChange={(e) => handleFieldChange("tvcLabel4", e.target.value.toUpperCase())}
+                          className="w-full bg-white border border-slate-200 rounded-lg py-1.5 px-2.5 text-xs font-medium focus:outline-hidden"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {model.layout === "campaign-brand-6" && (
+                <div className="col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                  <span className="text-xs font-bold text-slate-800 uppercase block">Testi Layout Royal Enfield (Spazi Sinistra)</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <div className="p-2.5 bg-white border border-slate-100 rounded-lg space-y-2">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase block">BLOCCO SUPERIORE (Sopra la Linea Divider)</span>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">Riga 1: Brand/Cliente</label>
+                        <input
+                          type="text"
+                          placeholder="es. ROYAL ENFIELD"
+                          value={model.campaignName || ""}
+                          onChange={(e) => handleFieldChange("campaignName", e.target.value.toUpperCase())}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-2.5 text-xs font-medium focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">Riga 2: Campagna/Collection</label>
+                        <input
+                          type="text"
+                          placeholder="es. CAMPAIGN"
+                          value={model.tvcLabelLeft || ""}
+                          onChange={(e) => handleFieldChange("tvcLabelLeft", e.target.value.toUpperCase())}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-2.5 text-xs font-medium focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-white border border-slate-100 rounded-lg space-y-2">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase block">BLOCCO INFERIORE (Sotto la Linea Divider)</span>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">Riga 1: Brand/Cliente</label>
+                        <input
+                          type="text"
+                          placeholder="es. ROYAL ENFIELD"
+                          value={model.customCaption || ""}
+                          onChange={(e) => handleFieldChange("customCaption", e.target.value.toUpperCase())}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-2.5 text-xs font-medium focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-600 block mb-1">Riga 2: Campagna/Collection</label>
+                        <input
+                          type="text"
+                          placeholder="es. CAMPAIGN"
+                          value={model.tvcLabelCenter || ""}
+                          onChange={(e) => handleFieldChange("tvcLabelCenter", e.target.value.toUpperCase())}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-2.5 text-xs font-medium focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="col-span-2 text-left">
                 <label className="text-xs font-semibold text-slate-700 block mb-1">GENERE / CATEGORIA (In Database)</label>
                 <select
@@ -396,6 +550,203 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                   <option value="child model man">child model man (Bambino)</option>
                 </select>
                 <p className="text-[10px] text-slate-400 mt-1">Questo campo non apparirà sul foglio e-composit ma serve per catalogare i modelli nel database.</p>
+              </div>
+
+              <div className="col-span-2 text-left bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="hideSpecsBar"
+                    checked={model.hideSpecsBar || false}
+                    onChange={(e) => handleFieldChange("hideSpecsBar", e.target.checked)}
+                    className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                  />
+                  <label htmlFor="hideSpecsBar" className="text-xs font-bold text-slate-800 cursor-pointer select-none uppercase tracking-wider">
+                    Nascondi Barra dei Dati Fisici
+                  </label>
+                </div>
+                {model.hideSpecsBar && (
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                        Testo Sostitutivo Barra (opzionale)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="es. WWW.COSMOPOLITANAGENCY.IT • INFO@COSMOPOLITANAGENCY.IT"
+                        value={model.customFooterText || ""}
+                        onChange={(e) => handleFieldChange("customFooterText", e.target.value.toUpperCase())}
+                        className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm font-medium focus:outline-hidden"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Questo testo sostituirà l'intera barra nera dei dati fisici sulla scheda. Se lasciato vuoto, la barra sarà semplicemente rimossa.
+                      </p>
+                    </div>
+
+                    {model.customFooterText && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="checkbox"
+                          id="customFooterWhiteBg"
+                          checked={model.customFooterWhiteBg || false}
+                          onChange={(e) => handleFieldChange("customFooterWhiteBg", e.target.checked)}
+                          className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                        />
+                        <label htmlFor="customFooterWhiteBg" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                          Testo nero su base bianca (senza barra nera)
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="border-t border-slate-200 pt-3.5 space-y-3">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block">Personalizzazione Intestazione Destra (Card)</span>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="hideHeaderName"
+                        checked={model.hideHeaderName || false}
+                        onChange={(e) => handleFieldChange("hideHeaderName", e.target.checked)}
+                        className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="hideHeaderName" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                        Nascondi Nome
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="hideHeaderIndex"
+                        checked={model.hideHeaderIndex || false}
+                        onChange={(e) => handleFieldChange("hideHeaderIndex", e.target.checked)}
+                        className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="hideHeaderIndex" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                        Nascondi Index
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="hideSocialIcons"
+                        checked={model.hideSocialIcons || false}
+                        onChange={(e) => handleFieldChange("hideSocialIcons", e.target.checked)}
+                        className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="hideSocialIcons" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                        Nascondi Social
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 pt-3.5 space-y-3">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block">Personalizzazione Intestazione Sinistra (Card)</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="hideHeaderLogo"
+                        checked={model.hideHeaderLogo || false}
+                        onChange={(e) => handleFieldChange("hideHeaderLogo", e.target.checked)}
+                        className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="hideHeaderLogo" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                        Nascondi Logo/Nome Agenzia
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="hideHeaderCategory"
+                        checked={model.hideHeaderCategory || false}
+                        onChange={(e) => handleFieldChange("hideHeaderCategory", e.target.checked)}
+                        className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="hideHeaderCategory" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                        Nascondi Categoria (Titolo)
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="hideHeaderContacts1"
+                        checked={model.hideHeaderContacts1 || false}
+                        onChange={(e) => handleFieldChange("hideHeaderContacts1", e.target.checked)}
+                        className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="hideHeaderContacts1" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                        Nascondi Tel/Nome
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="hideHeaderContacts2"
+                        checked={model.hideHeaderContacts2 || false}
+                        onChange={(e) => handleFieldChange("hideHeaderContacts2", e.target.checked)}
+                        className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="hideHeaderContacts2" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                        Nascondi Indirizzo/Città
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="hideHeaderContacts3"
+                        checked={model.hideHeaderContacts3 || false}
+                        onChange={(e) => handleFieldChange("hideHeaderContacts3", e.target.checked)}
+                        className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="hideHeaderContacts3" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                        Nascondi Email/Sito Web
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 pt-3.5 space-y-3">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block">Protezione Immagini (Watermark)</span>
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="showWatermark"
+                        checked={model.showWatermark || false}
+                        onChange={(e) => handleFieldChange("showWatermark", e.target.checked)}
+                        className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="showWatermark" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                        Abilita Watermark (Filigrana Foto)
+                      </label>
+                    </div>
+                    {model.showWatermark && (
+                      <div className="bg-white p-2.5 border border-slate-100 rounded-lg space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Testo della Filigrana</label>
+                        <input
+                          type="text"
+                          placeholder="es. COSMOPOLITAN"
+                          value={model.watermarkText || ""}
+                          onChange={(e) => handleFieldChange("watermarkText", e.target.value.toUpperCase())}
+                          className="w-full bg-white border border-slate-200 rounded-lg py-1.5 px-2.5 text-xs text-slate-800 focus:outline-hidden"
+                        />
+                        <p className="text-[9px] text-slate-400 leading-normal">
+                          Inserisci il testo (es. Nome Agenzia o "PROVA"). Se vuoto, usera' automaticamente il nome della modella in diagonale su ciascuna foto.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
               </div>
 
               <div>
@@ -540,6 +891,10 @@ export const ModelForm: React.FC<ModelFormProps> = ({
           let show4 = false;
           let show5 = false;
           let show6 = false;
+          let show7 = false;
+          let show8 = false;
+          let show9 = false;
+          let show10 = false;
 
           let labelLeft = "1. FOTO SINISTRA";
           let labelCenter = "2. FOTO CENTRALE";
@@ -547,6 +902,10 @@ export const ModelForm: React.FC<ModelFormProps> = ({
           let label4 = "4. QUARTA FOTO";
           let label5 = "5. QUINTA FOTO";
           let label6 = "6. SESTA FOTO";
+          let label7 = "7. SETTIMA FOTO";
+          let label8 = "8. OTTAVA FOTO";
+          let label9 = "9. NONA FOTO";
+          let label10 = "10. DECIMA FOTO";
 
           if (currentLayout === "classic") {
             showLeft = true;
@@ -614,6 +973,91 @@ export const ModelForm: React.FC<ModelFormProps> = ({
             label4 = "4. RITRATTO GRIGLIA DESTRA B (ALTO A DESTRA)";
             label5 = "5. RITRATTO GRIGLIA DESTRA C (BASSO A SINISTRA)";
             label6 = "6. RITRATTO GRIGLIA DESTRA D (BASSO A DESTRA)";
+          } else if (currentLayout === "grid-10") {
+            showLeft = true;
+            showCenter = true;
+            showRight = true;
+            show4 = true;
+            show5 = true;
+            show6 = true;
+            show7 = true;
+            show8 = true;
+            show9 = true;
+            show10 = true;
+            labelLeft = "1. RITRATTO (RIGA 1 - POS. 1)";
+            labelCenter = "2. RITRATTO (RIGA 1 - POS. 2)";
+            labelRight = "3. RITRATTO (RIGA 1 - POS. 3)";
+            label4 = "4. RITRATTO (RIGA 1 - POS. 4)";
+            label5 = "5. RITRATTO (RIGA 1 - POS. 5)";
+            label6 = "6. RITRATTO (RIGA 2 - POS. 1)";
+            label7 = "7. RITRATTO (RIGA 2 - POS. 2)";
+            label8 = "8. RITRATTO (RIGA 2 - POS. 3)";
+            label9 = "9. RITRATTO (RIGA 2 - POS. 4)";
+            label10 = "10. RITRATTO (RIGA 2 - POS. 5)";
+          } else if (currentLayout === "cinematic-2") {
+            showLeft = true;
+            showCenter = true;
+            labelLeft = "1. FOTO CINEMATICA (ALTO)";
+            labelCenter = "2. FOTO CINEMATICA (BASSO)";
+          } else if (currentLayout === "campaign-2") {
+            showLeft = true;
+            showCenter = true;
+            labelLeft = "1. FOTO CAMPAGNA (SINISTRA)";
+            labelCenter = "2. FOTO CAMPAGNA (DESTRA)";
+          } else if (currentLayout === "campaign-2-portrait") {
+            showLeft = true;
+            showCenter = true;
+            labelLeft = "1. FOTO CAMPAGNA VERTICALE (SINISTRA)";
+            labelCenter = "2. FOTO CAMPAGNA VERTICALE (DESTRA)";
+          } else if (currentLayout === "campaign-wedding") {
+            showLeft = true;
+            showCenter = true;
+            labelLeft = "1. FOTO SINISTRA (STANDARD)";
+            labelCenter = "2. FOTO DESTRA (CON CORNICE MARMO)";
+          } else if (currentLayout === "campaign-3") {
+            showLeft = true;
+            showCenter = true;
+            showRight = true;
+            labelLeft = "1. FOTO SINISTRA (TALL VERTICALE)";
+            labelCenter = "2. FOTO CENTRO ALTO (ORIZZONTALE)";
+            labelRight = "3. FOTO CENTRO BASSO (ORIZZONTALE)";
+          } else if (currentLayout === "campaign-seamless") {
+            showLeft = true;
+            showCenter = true;
+            labelLeft = "1. FOTO CAMPAGNA SINISTRA (ORIZZONTALE)";
+            labelCenter = "2. FOTO CAMPAGNA DESTRA (ORIZZONTALE)";
+          } else if (currentLayout === "campaign-tvc") {
+            showLeft = true;
+            showCenter = true;
+            showRight = true;
+            labelLeft = "1. TVC STILL - IN ALTO A SINISTRA (ORIZZONTALE)";
+            labelCenter = "2. TVC STILL - IN ALTO A DESTRA (ORIZZONTALE)";
+            labelRight = "3. TVC STILL - IN BASSO AL CENTRO (ORIZZONTALE)";
+          } else if (currentLayout === "campaign-tvc-4") {
+            showLeft = true;
+            showCenter = true;
+            showRight = true;
+            show4 = true;
+            labelLeft = "1. TVC STILL - IN ALTO A SINISTRA (ORIZZONTALE)";
+            labelCenter = "2. TVC STILL - IN ALTO A DESTRA (ORIZZONTALE)";
+            labelRight = "3. TVC STILL - IN BASSO A SINISTRA (ORIZZONTALE)";
+            label4 = "4. TVC STILL - IN BASSO A DESTRA (ORIZZONTALE)";
+          } else if (currentLayout === "campaign-solo") {
+            showLeft = true;
+            labelLeft = "FOTO CAMPAGNA (PRINCIPALE CENTRATA)";
+          } else if (currentLayout === "campaign-brand-6") {
+            showLeft = true;
+            showCenter = true;
+            showRight = true;
+            show4 = true;
+            show5 = true;
+            show6 = true;
+            labelLeft = "1. FOTO ALTO SINISTRA (PORTRAIT)";
+            labelCenter = "2. FOTO ALTO CENTRO (PORTRAIT)";
+            labelRight = "3. FOTO ALTO DESTRA (PORTRAIT)";
+            label4 = "4. FOTO BASSO SINISTRA (PORTRAIT)";
+            label5 = "5. FOTO BASSO CENTRO (PORTRAIT)";
+            label6 = "6. FOTO BASSO DESTRA (PORTRAIT)";
           }
 
           return (
@@ -1240,6 +1684,418 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 </div>
               )}
 
+              {/* SEC 7: FOTO 7 */}
+              {show7 && (
+                <div className="border border-slate-100 rounded-xl bg-white p-4 space-y-3 shadow-2xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1">
+                      {label7}
+                    </span>
+                    {model.image7 && (
+                      <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+                        Caricata
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => triggerImageUpload("7")}
+                      className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs py-2 px-3 rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Upload size={14} />
+                      Sfoglia File PC / Mac
+                    </button>
+                    <input
+                      type="file"
+                      ref={file7Ref}
+                      accept="image/*"
+                      onChange={(e) => handleImageFileChange("7", e)}
+                      className="hidden"
+                    />
+                  </div>
+
+                  {/* Dimensioni Consigliate */}
+                  {(() => {
+                    const rec = getImageRecommendation("7", currentLayout);
+                    return (
+                      <div className="bg-slate-50 border border-slate-100/60 px-3 py-2 rounded-lg space-y-1 block text-left">
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                          <span className="font-bold text-slate-500 uppercase tracking-wider text-[8.5px]">Consigliato:</span>
+                          <span className="font-mono font-bold text-slate-800 bg-slate-200/80 px-1 rounded-2xs text-[10px]">
+                            {rec.minWidth} × {rec.minHeight} px
+                          </span>
+                          <span className="bg-slate-200 text-slate-700 px-1 rounded-2xs text-[9.5px] font-semibold">
+                            {rec.ratio} ({rec.orientation})
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">
+                          {rec.notes}
+                        </p>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="space-y-2 pt-2 border-t border-slate-50">
+                    <div className="flex justify-between text-[11px] text-slate-600">
+                      <span className="flex items-center gap-1"><ZoomIn size={12} /> Zoom: {model.zoom7 ?? 100}%</span>
+                      <button 
+                        onClick={() => {
+                          handleFieldChange("zoom7", 100);
+                          handleFieldChange("offsetX7", 50);
+                          handleFieldChange("offsetY7", 50);
+                        }} 
+                        className="text-red-500 hover:underline text-[10px]"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    <input
+                      type="range"
+                      min="30"
+                      max="300"
+                      value={model.zoom7 ?? 100}
+                      onChange={(e) => handleFieldChange("zoom7", parseInt(e.target.value))}
+                      className="w-full accent-slate-900"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 pt-1">
+                      <div>
+                        <span>Sposta Orizzontale (X)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={model.offsetX7 ?? 50}
+                          onChange={(e) => handleFieldChange("offsetX7", parseInt(e.target.value))}
+                          className="w-full accent-slate-600 mt-1"
+                        />
+                      </div>
+                      <div>
+                        <span>Sposta Verticale (Y)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={model.offsetY7 ?? 50}
+                          onChange={(e) => handleFieldChange("offsetY7", parseInt(e.target.value))}
+                          className="w-full accent-slate-600 mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SEC 8: FOTO 8 */}
+              {show8 && (
+                <div className="border border-slate-100 rounded-xl bg-white p-4 space-y-3 shadow-2xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1">
+                      {label8}
+                    </span>
+                    {model.image8 && (
+                      <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+                        Caricata
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => triggerImageUpload("8")}
+                      className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs py-2 px-3 rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Upload size={14} />
+                      Sfoglia File PC / Mac
+                    </button>
+                    <input
+                      type="file"
+                      ref={file8Ref}
+                      accept="image/*"
+                      onChange={(e) => handleImageFileChange("8", e)}
+                      className="hidden"
+                    />
+                  </div>
+
+                  {/* Dimensioni Consigliate */}
+                  {(() => {
+                    const rec = getImageRecommendation("8", currentLayout);
+                    return (
+                      <div className="bg-slate-50 border border-slate-100/60 px-3 py-2 rounded-lg space-y-1 block text-left">
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                          <span className="font-bold text-slate-500 uppercase tracking-wider text-[8.5px]">Consigliato:</span>
+                          <span className="font-mono font-bold text-slate-800 bg-slate-200/80 px-1 rounded-2xs text-[10px]">
+                            {rec.minWidth} × {rec.minHeight} px
+                          </span>
+                          <span className="bg-slate-200 text-slate-700 px-1 rounded-2xs text-[9.5px] font-semibold">
+                            {rec.ratio} ({rec.orientation})
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">
+                          {rec.notes}
+                        </p>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="space-y-2 pt-2 border-t border-slate-50">
+                    <div className="flex justify-between text-[11px] text-slate-600">
+                      <span className="flex items-center gap-1"><ZoomIn size={12} /> Zoom: {model.zoom8 ?? 100}%</span>
+                      <button 
+                        onClick={() => {
+                          handleFieldChange("zoom8", 100);
+                          handleFieldChange("offsetX8", 50);
+                          handleFieldChange("offsetY8", 50);
+                        }} 
+                        className="text-red-500 hover:underline text-[10px]"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    <input
+                      type="range"
+                      min="30"
+                      max="300"
+                      value={model.zoom8 ?? 100}
+                      onChange={(e) => handleFieldChange("zoom8", parseInt(e.target.value))}
+                      className="w-full accent-slate-900"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 pt-1">
+                      <div>
+                        <span>Sposta Orizzontale (X)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={model.offsetX8 ?? 50}
+                          onChange={(e) => handleFieldChange("offsetX8", parseInt(e.target.value))}
+                          className="w-full accent-slate-600 mt-1"
+                        />
+                      </div>
+                      <div>
+                        <span>Sposta Verticale (Y)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={model.offsetY8 ?? 50}
+                          onChange={(e) => handleFieldChange("offsetY8", parseInt(e.target.value))}
+                          className="w-full accent-slate-600 mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SEC 9: FOTO 9 */}
+              {show9 && (
+                <div className="border border-slate-100 rounded-xl bg-white p-4 space-y-3 shadow-2xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1">
+                      {label9}
+                    </span>
+                    {model.image9 && (
+                      <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+                        Caricata
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => triggerImageUpload("9")}
+                      className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs py-2 px-3 rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Upload size={14} />
+                      Sfoglia File PC / Mac
+                    </button>
+                    <input
+                      type="file"
+                      ref={file9Ref}
+                      accept="image/*"
+                      onChange={(e) => handleImageFileChange("9", e)}
+                      className="hidden"
+                    />
+                  </div>
+
+                  {/* Dimensioni Consigliate */}
+                  {(() => {
+                    const rec = getImageRecommendation("9", currentLayout);
+                    return (
+                      <div className="bg-slate-50 border border-slate-100/60 px-3 py-2 rounded-lg space-y-1 block text-left">
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                          <span className="font-bold text-slate-500 uppercase tracking-wider text-[8.5px]">Consigliato:</span>
+                          <span className="font-mono font-bold text-slate-800 bg-slate-200/80 px-1 rounded-2xs text-[10px]">
+                            {rec.minWidth} × {rec.minHeight} px
+                          </span>
+                          <span className="bg-slate-200 text-slate-700 px-1 rounded-2xs text-[9.5px] font-semibold">
+                            {rec.ratio} ({rec.orientation})
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">
+                          {rec.notes}
+                        </p>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="space-y-2 pt-2 border-t border-slate-50">
+                    <div className="flex justify-between text-[11px] text-slate-600">
+                      <span className="flex items-center gap-1"><ZoomIn size={12} /> Zoom: {model.zoom9 ?? 100}%</span>
+                      <button 
+                        onClick={() => {
+                          handleFieldChange("zoom9", 100);
+                          handleFieldChange("offsetX9", 50);
+                          handleFieldChange("offsetY9", 50);
+                        }} 
+                        className="text-red-500 hover:underline text-[10px]"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    <input
+                      type="range"
+                      min="30"
+                      max="300"
+                      value={model.zoom9 ?? 100}
+                      onChange={(e) => handleFieldChange("zoom9", parseInt(e.target.value))}
+                      className="w-full accent-slate-900"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 pt-1">
+                      <div>
+                        <span>Sposta Orizzontale (X)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={model.offsetX9 ?? 50}
+                          onChange={(e) => handleFieldChange("offsetX9", parseInt(e.target.value))}
+                          className="w-full accent-slate-600 mt-1"
+                        />
+                      </div>
+                      <div>
+                        <span>Sposta Verticale (Y)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={model.offsetY9 ?? 50}
+                          onChange={(e) => handleFieldChange("offsetY9", parseInt(e.target.value))}
+                          className="w-full accent-slate-600 mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SEC 10: FOTO 10 */}
+              {show10 && (
+                <div className="border border-slate-100 rounded-xl bg-white p-4 space-y-3 shadow-2xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1">
+                      {label10}
+                    </span>
+                    {model.image10 && (
+                      <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+                        Caricata
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => triggerImageUpload("10")}
+                      className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs py-2 px-3 rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Upload size={14} />
+                      Sfoglia File PC / Mac
+                    </button>
+                    <input
+                      type="file"
+                      ref={file10Ref}
+                      accept="image/*"
+                      onChange={(e) => handleImageFileChange("10", e)}
+                      className="hidden"
+                    />
+                  </div>
+
+                  {/* Dimensioni Consigliate */}
+                  {(() => {
+                    const rec = getImageRecommendation("10", currentLayout);
+                    return (
+                      <div className="bg-slate-50 border border-slate-100/60 px-3 py-2 rounded-lg space-y-1 block text-left">
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                          <span className="font-bold text-slate-500 uppercase tracking-wider text-[8.5px]">Consigliato:</span>
+                          <span className="font-mono font-bold text-slate-800 bg-slate-200/80 px-1 rounded-2xs text-[10px]">
+                            {rec.minWidth} × {rec.minHeight} px
+                          </span>
+                          <span className="bg-slate-200 text-slate-700 px-1 rounded-2xs text-[9.5px] font-semibold">
+                            {rec.ratio} ({rec.orientation})
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">
+                          {rec.notes}
+                        </p>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="space-y-2 pt-2 border-t border-slate-50">
+                    <div className="flex justify-between text-[11px] text-slate-600">
+                      <span className="flex items-center gap-1"><ZoomIn size={12} /> Zoom: {model.zoom10 ?? 100}%</span>
+                      <button 
+                        onClick={() => {
+                          handleFieldChange("zoom10", 100);
+                          handleFieldChange("offsetX10", 50);
+                          handleFieldChange("offsetY10", 50);
+                        }} 
+                        className="text-red-500 hover:underline text-[10px]"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    <input
+                      type="range"
+                      min="30"
+                      max="300"
+                      value={model.zoom10 ?? 100}
+                      onChange={(e) => handleFieldChange("zoom10", parseInt(e.target.value))}
+                      className="w-full accent-slate-900"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 pt-1">
+                      <div>
+                        <span>Sposta Orizzontale (X)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={model.offsetX10 ?? 50}
+                          onChange={(e) => handleFieldChange("offsetX10", parseInt(e.target.value))}
+                          className="w-full accent-slate-600 mt-1"
+                        />
+                      </div>
+                      <div>
+                        <span>Sposta Verticale (Y)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={model.offsetY10 ?? 50}
+                          onChange={(e) => handleFieldChange("offsetY10", parseInt(e.target.value))}
+                          className="w-full accent-slate-600 mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           );
         })()}
@@ -1393,6 +2249,251 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                   </div>
                   <span className="text-[11px] font-bold block leading-none">Editoriale (6 Foto)</span>
                   <span className="text-[9px] opacity-70 block">Scheda Tecnica + 6 Foto</span>
+                </button>
+
+                {/* 8. Grid 10 */}
+                <button
+                  type="button"
+                  onClick={() => handleFieldChange("layout", "grid-10")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "grid-10"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="grid grid-cols-5 gap-0.5 w-12 h-6 mb-1.5 opacity-80">
+                    <div className="bg-slate-400 rounded-2xs h-[11.5px]" />
+                    <div className="bg-slate-400 rounded-2xs h-[11.5px]" />
+                    <div className="bg-slate-400 rounded-2xs h-[11.5px]" />
+                    <div className="bg-slate-400 rounded-2xs h-[11.5px]" />
+                    <div className="bg-slate-400 rounded-2xs h-[11.5px]" />
+                    <div className="bg-slate-400 rounded-2xs h-[11.5px]" />
+                    <div className="bg-slate-400 rounded-2xs h-[11.5px]" />
+                    <div className="bg-slate-400 rounded-2xs h-[11.5px]" />
+                    <div className="bg-slate-400 rounded-2xs h-[11.5px]" />
+                    <div className="bg-slate-400 rounded-2xs h-[11.5px]" />
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Grid 5x2 (10 Foto)</span>
+                  <span className="text-[9px] opacity-70 block">Layout Griglia 10 Foto</span>
+                </button>
+
+                {/* 9. Cinematic Duo */}
+                <button
+                  type="button"
+                  onClick={() => handleFieldChange("layout", "cinematic-2")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "cinematic-2"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex gap-1 w-12 h-6 mb-1.5 opacity-80">
+                    <div className="w-[12px] bg-slate-300 rounded-2xs h-full" />
+                    <div className="flex-1 flex flex-col gap-0.5 h-full">
+                      <div className="bg-slate-400 rounded-2xs h-[11px] w-full" />
+                      <div className="bg-slate-400 rounded-2xs h-[11px] w-full" />
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Duo Cinematico</span>
+                  <span className="text-[9px] opacity-70 block">2 foto panoramiche + Misure</span>
+                </button>
+
+                {/* 10. Campaign Duo */}
+                <button
+                  type="button"
+                  id="layout-btn-campaign-2"
+                  onClick={() => handleFieldChange("layout", "campaign-2")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "campaign-2"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex gap-1.5 w-12 h-6 mb-1.5 opacity-80 justify-center">
+                    <div className="w-[19px] bg-slate-400 rounded-2xs h-full" />
+                    <div className="w-[19px] bg-slate-400 rounded-2xs h-full" />
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Duo Orizzontale</span>
+                  <span className="text-[9px] opacity-70 block">2 foto landscape + Titolo</span>
+                </button>
+
+                {/* 10b. Campaign Duo Portrait */}
+                <button
+                  type="button"
+                  id="layout-btn-campaign-2-portrait"
+                  onClick={() => handleFieldChange("layout", "campaign-2-portrait")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "campaign-2-portrait"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex gap-1.5 w-12 h-6 mb-1.5 opacity-80 justify-center">
+                    <div className="w-[15px] bg-slate-400 rounded-2xs h-full" />
+                    <div className="w-[15px] bg-slate-400 rounded-2xs h-full" />
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Duo Verticale (Nuovo!)</span>
+                  <span className="text-[9px] opacity-70 block">2 foto portrait + Titolo</span>
+                </button>
+
+                {/* 11. Campaign Wedding */}
+                <button
+                  type="button"
+                  id="layout-btn-campaign-wedding"
+                  onClick={() => handleFieldChange("layout", "campaign-wedding")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "campaign-wedding"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex gap-1.5 w-12 h-6 mb-1.5 opacity-80 justify-center">
+                    <div className="w-[21px] bg-slate-300 rounded-2xs h-full" />
+                    <div className="w-[21px] bg-slate-400 rounded-2xs border border-slate-200 h-full flex items-center justify-center text-[5px] text-slate-500 font-bold bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-200 to-slate-300">M</div>
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Campagna Wedding</span>
+                  <span className="text-[9px] opacity-70 block">Con texture marmo + Didascalia</span>
+                </button>
+
+                {/* 12. Campaign 3 (Royal Enfield Style) */}
+                <button
+                  type="button"
+                  id="layout-btn-campaign-3"
+                  onClick={() => handleFieldChange("layout", "campaign-3")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "campaign-3"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex gap-1 w-12 h-6 mb-1.5 opacity-80 justify-start">
+                    <div className="w-[14px] bg-slate-400 rounded-3xs h-full" />
+                    <div className="w-[20px] flex flex-col gap-0.5 h-full">
+                      <div className="bg-slate-400 rounded-3xs grow" />
+                      <div className="bg-slate-400 rounded-3xs grow" />
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Campagna Touring</span>
+                  <span className="text-[9px] opacity-70 block">3 foto + Info colonna destra</span>
+                </button>
+
+                {/* 13. Campaign Seamless */}
+                <button
+                  type="button"
+                  id="layout-btn-campaign-seamless"
+                  onClick={() => handleFieldChange("layout", "campaign-seamless")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "campaign-seamless"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex w-12 h-6 mb-1.5 opacity-80 justify-center gap-0">
+                    <div className="w-[24px] bg-slate-400 rounded-l-2xs h-full" />
+                    <div className="w-[24px] bg-slate-400 rounded-r-2xs h-full border-l border-white" />
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Campagna Seamless</span>
+                  <span className="text-[9px] opacity-70 block">Duo panoramico senza spazio</span>
+                </button>
+
+                {/* 14. Campaign TVC */}
+                <button
+                  type="button"
+                  id="layout-btn-campaign-tvc"
+                  onClick={() => handleFieldChange("layout", "campaign-tvc")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "campaign-tvc"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex flex-col gap-0.5 w-[38px] h-6 mb-1.5 opacity-80 justify-center mx-auto">
+                    <div className="flex gap-0.5 justify-center w-full h-[11px]">
+                      <div className="w-[18px] bg-slate-400 rounded-3xs h-full" />
+                      <div className="w-[18px] bg-slate-400 rounded-3xs h-full" />
+                    </div>
+                    <div className="w-[18px] bg-slate-400 rounded-3xs h-[11px] self-center" />
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Vito Movie TVC</span>
+                  <span className="text-[9px] opacity-70 block">Showcase 3 Still Video</span>
+                </button>
+
+                {/* 15. Campaign Solo */}
+                <button
+                  type="button"
+                  id="layout-btn-campaign-solo"
+                  onClick={() => handleFieldChange("layout", "campaign-solo")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "campaign-solo"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex w-12 h-6 mb-1.5 opacity-80 justify-center">
+                    <div className="w-[24px] bg-slate-400 rounded-2xs h-full" />
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Campagna Singola</span>
+                  <span className="text-[9px] opacity-70 block">1 grande foto centrata + Titolo</span>
+                </button>
+
+                {/* 16. Campaign TVC 4 */}
+                <button
+                  type="button"
+                  id="layout-btn-campaign-tvc-4"
+                  onClick={() => handleFieldChange("layout", "campaign-tvc-4")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "campaign-tvc-4"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex flex-col gap-0.5 w-[38px] h-6 mb-1.5 opacity-80 justify-center mx-auto">
+                    <div className="flex gap-0.5 justify-center w-full h-[11px]">
+                      <div className="w-[18px] bg-slate-400 rounded-3xs h-full" />
+                      <div className="w-[18px] bg-slate-400 rounded-3xs h-full" />
+                    </div>
+                    <div className="flex gap-0.5 justify-center w-full h-[11px]">
+                      <div className="w-[18px] bg-slate-400 rounded-3xs h-full" />
+                      <div className="w-[18px] bg-slate-400 rounded-3xs h-full" />
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Vito Movie TVC 2x2</span>
+                  <span className="text-[9px] opacity-70 block">Griglia 4 Still Video (2x2)</span>
+                </button>
+
+                {/* 17. Campaign Brand 6 */}
+                <button
+                  type="button"
+                  id="layout-btn-campaign-brand-6"
+                  onClick={() => handleFieldChange("layout", "campaign-brand-6")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "campaign-brand-6"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex gap-1.5 w-full h-6 mb-1.5 opacity-80 justify-center items-center">
+                    {/* Left text representation */}
+                    <div className="flex flex-col gap-0.5 w-2/5">
+                      <div className="h-1 bg-slate-400 rounded-full w-full" />
+                      <div className="h-[0.5px] bg-slate-400 rounded-full w-[80%]" />
+                    </div>
+                    {/* Right 3x2 Grid */}
+                    <div className="flex flex-col gap-0.5 w-3/5 h-full justify-center">
+                      <div className="flex gap-0.5 justify-center w-full h-[11px]">
+                        <div className="w-[8px] bg-slate-400 rounded-3xs h-full" />
+                        <div className="w-[8px] bg-slate-400 rounded-3xs h-full" />
+                        <div className="w-[8px] bg-slate-400 rounded-3xs h-full" />
+                      </div>
+                      <div className="flex gap-0.5 justify-center w-full h-[11px]">
+                        <div className="w-[8px] bg-slate-400 rounded-3xs h-full" />
+                        <div className="w-[8px] bg-slate-400 rounded-3xs h-full" />
+                        <div className="w-[8px] bg-slate-400 rounded-3xs h-full" />
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Royal Enfield 3x2</span>
+                  <span className="text-[9px] opacity-70 block">Griglia 6 Foto + Spazio Testi</span>
                 </button>
               </div>
             </div>
