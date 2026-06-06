@@ -117,7 +117,7 @@ const CardImage: React.FC<CardImageProps> = ({ src, alt, zoom, offsetX, offsetY 
 };
 
 // Pure, high-fidelity vector representation of the official Cosmopolitan brand logo
-const CosmopolitanTextLogo: React.FC = () => {
+const CosmopolitanTextLogo: React.FC<{ variant?: "normal" | "small" | "tiny" }> = ({ variant = "normal" }) => {
   // Split "modaeventipubblicitàcomunicazione" into individual characters with their respective colors
   const subtitleChars = [
     ...("moda".split("").map(char => ({ char, color: "text-[#b11030]" }))),
@@ -126,13 +126,16 @@ const CosmopolitanTextLogo: React.FC = () => {
     ...("licitàcomunicazione".split("").map(char => ({ char, color: "text-black" })))
   ];
 
+  const mainSize = variant === "tiny" ? "text-[13px]" : variant === "small" ? "text-[18px]" : "text-[26px]";
+  const subSize = variant === "tiny" ? "text-[4.2px]" : variant === "small" ? "text-[5.5px]" : "text-[7px]";
+
   return (
     <div className="flex flex-col select-none pointer-events-none flex-shrink-0 text-left w-fit" style={{ fontFamily: '"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif' }}>
-      <div className="text-[26px] leading-none flex items-center select-none font-light tracking-[0.03em]" style={{ fontWeight: 300 }}>
+      <div className={`${mainSize} leading-none flex items-center select-none font-light tracking-[0.03em]`} style={{ fontWeight: 300 }}>
         <span className="text-black uppercase">COSMO</span>
         <span className="text-[#b11030] uppercase">POLITAN</span>
       </div>
-      <div className="w-full flex justify-between text-[7px] leading-none mt-1 select-none font-light" style={{ fontWeight: 300 }}>
+      <div className={`w-full flex justify-between ${subSize} leading-none mt-1 select-none font-light`} style={{ fontWeight: 300 }}>
         {subtitleChars.map((item, index) => (
           <span key={index} className={`${item.color} lowercase`}>
             {item.char}
@@ -222,6 +225,194 @@ export const ModelCard: React.FC<ModelCardProps> = ({
     showWatermark: !!model.showWatermark,
     watermarkText: model.watermarkText || model.name || "COSMOPOLITAN",
   }), [model.showWatermark, model.watermarkText, model.name]);
+
+  if (layout === "campaign-5-hybrid") {
+    return (
+      <WatermarkContext.Provider value={watermarkValue}>
+        <div
+          id={id}
+          className={`print-container bg-white relative flex flex-col justify-between select-none overflow-hidden ${fontStyles[fontFamily]}`}
+          style={{
+            width: "297mm",
+            height: "210mm",
+            padding: "12mm 12mm", // Beautiful clean margins for Campaign layout
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            boxSizing: "border-box",
+            border: "1px solid rgba(0, 0, 0, 0.1)",
+          }}
+        >
+          {/* Beautiful Bento Grid of 5 photos: 1 tall left, 4 in a 2x2 grid on right */}
+          <div className="flex gap-[5mm] w-full" style={{ height: "155mm" }}>
+            {/* Left tall photo */}
+            <div 
+              className="bg-white p-0.5 shadow-md border border-slate-200/80 w-[120mm] h-[155mm] transition-all duration-300 hover:shadow-lg relative flex flex-col"
+            >
+              <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
+                {model.imageLeft ? (
+                  <CardImage
+                    src={model.imageLeft}
+                    alt="Left Main Campaign"
+                    zoom={model.zoomLeft}
+                    offsetX={model.offsetXLeft}
+                    offsetY={model.offsetYLeft}
+                  />
+                ) : (
+                  <div className="text-center p-2">
+                    <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto Sinistra Grande</p>
+                    <p className="text-[8px] text-stone-400">Carica Foto Sinistra</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right 2x2 grid */}
+            <div className="grid grid-cols-2 gap-x-[4mm] gap-y-[4mm] w-[148mm] h-[155mm]">
+              {/* Photo 2 (Center) */}
+              <div className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg relative flex flex-col h-[75.5mm] overflow-hidden">
+                <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
+                  {model.imageCenter ? (
+                    <CardImage
+                      src={model.imageCenter}
+                      alt="Grid Photo 2"
+                      zoom={model.zoomCenter}
+                      offsetX={model.offsetXCenter}
+                      offsetY={model.offsetYCenter}
+                    />
+                  ) : (
+                    <div className="text-center p-2">
+                      <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 2 (Alto Sinistra)</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Photo 3 (Right) */}
+              <div className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg relative flex flex-col h-[75.5mm] overflow-hidden">
+                <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
+                  {model.imageRight ? (
+                    <CardImage
+                      src={model.imageRight}
+                      alt="Grid Photo 3"
+                      zoom={model.zoomRight}
+                      offsetX={model.offsetXRight}
+                      offsetY={model.offsetYRight}
+                    />
+                  ) : (
+                    <div className="text-center p-2">
+                      <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 3 (Alto Destra)</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Photo 4 (Image4) */}
+              <div className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg relative flex flex-col h-[75.5mm] overflow-hidden">
+                <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
+                  {model.image4 ? (
+                    <CardImage
+                      src={model.image4}
+                      alt="Grid Photo 4"
+                      zoom={model.zoom4}
+                      offsetX={model.offsetX4}
+                      offsetY={model.offsetY4}
+                    />
+                  ) : (
+                    <div className="text-center p-2">
+                      <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 4 (Basso Sinistra)</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Photo 5 (Image5) */}
+              <div className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg relative flex flex-col h-[75.5mm] overflow-hidden">
+                <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
+                  {model.image5 ? (
+                    <CardImage
+                      src={model.image5}
+                      alt="Grid Photo 5"
+                      zoom={model.zoom5}
+                      offsetX={model.offsetX5}
+                      offsetY={model.offsetY5}
+                    />
+                  ) : (
+                    <div className="text-center p-2">
+                      <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 5 (Basso Destra)</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Middle: Model Name centered under left photo */}
+          <div className="flex flex-col items-center justify-center mt-2" style={{ width: "120mm" }}>
+            <h2 className="text-[17px] font-sans font-extrabold uppercase tracking-[0.2em] text-slate-900 leading-none">
+              {model.name || "NOME MODELLO"}
+            </h2>
+            {model.customCaption && (
+              <span className="text-[9px] font-mono text-slate-500 tracking-widest uppercase mt-1">
+                {model.customCaption.startsWith("@") ? model.customCaption : `@${model.customCaption}`}
+              </span>
+            )}
+          </div>
+
+          {/* Bottom Footer bar (White background, light/clean) */}
+          <div className="flex justify-between items-end w-full border-t border-slate-200 pt-2 pb-1 text-slate-900 mt-auto">
+            {/* Left side: Horizontal specifications */}
+            <div className="flex items-center gap-4 text-[10px] text-slate-500 font-sans tracking-wide">
+              {model.height && (
+                <span className="uppercase">Height <strong className="text-slate-900 font-bold">{model.height}</strong></span>
+              )}
+              {model.bust && (
+                <span className="uppercase">Bust <strong className="text-slate-900 font-bold">{model.bust}</strong></span>
+              )}
+              {model.waist && (
+                <span className="uppercase">Waist <strong className="text-slate-900 font-bold">{model.waist}</strong></span>
+              )}
+              {model.hips && (
+                <span className="uppercase">Hips <strong className="text-slate-900 font-bold">{model.hips}</strong></span>
+              )}
+              {model.shoes && (
+                <span className="uppercase">Shoes <strong className="text-slate-900 font-bold">{model.shoes}</strong></span>
+              )}
+              {model.hair && (
+                <span className="uppercase">Hair <strong className="text-slate-900 font-bold">{model.hair}</strong></span>
+              )}
+              {model.eyes && (
+                <span className="uppercase">Eyes <strong className="text-slate-900 font-bold">{model.eyes}</strong></span>
+              )}
+            </div>
+
+            {/* Right side: Agency details and Logo stacked vertically */}
+            <div className="flex flex-col items-end gap-1 text-right max-w-[120mm]">
+              {agency.logo ? (
+                <img 
+                  src={agency.logo} 
+                  alt="Brand Logo" 
+                  className="h-7 w-auto object-contain flex-shrink-0 mb-0.5"
+                  referrerPolicy="no-referrer"
+                  crossOrigin={getCrossOrigin(agency.logo)}
+                />
+              ) : (
+                <div className="mb-0.5">
+                  <CosmopolitanTextLogo variant="small" />
+                </div>
+              )}
+              <div className="flex flex-col text-[7.5px] leading-tight text-slate-500 font-sans uppercase tracking-wider">
+                <span>{agency.address || "via della Repubblica n°61"}{agency.city && `, ${agency.city}`}</span>
+                <span>
+                  {agency.phone && `Tel: ${agency.phone}`}
+                  {agency.email && ` / Email: ${agency.email}`}
+                  {agency.web && ` / Web: ${agency.web}`}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </WatermarkContext.Provider>
+    );
+  }
 
   return (
     <WatermarkContext.Provider value={watermarkValue}>
@@ -2384,11 +2575,13 @@ export const ModelCard: React.FC<ModelCardProps> = ({
             </div>
           )}
 
+
+
         </div>
       </div>
 
       {/* High Density Professional Characteristics Footer block */}
-      {!model.hideSpecsBar && layout !== "campaign-brand-6" ? (
+      {!model.hideSpecsBar && layout !== "campaign-brand-6" && layout !== "campaign-5-hybrid" ? (
         <footer className="bg-slate-950 text-white rounded-md p-4 mt-2 shadow-lg border border-slate-800">
           <div className="grid grid-cols-8 gap-1.5 text-left w-full">
             {/* H 1 */}

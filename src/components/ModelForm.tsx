@@ -157,6 +157,9 @@ export const ModelForm: React.FC<ModelFormProps> = ({
     if (l === "campaign-brand-6") {
       return { minWidth: 1000, minHeight: 1333, orientation: "Verticale (Portrait)", ratio: "3:4", notes: "Foto verticale di campagna o ritratto, formato 3:4." };
     }
+    if (l === "campaign-5-hybrid") {
+      return { minWidth: 1000, minHeight: 1290, orientation: "Verticale (Portrait)", ratio: "3:4", notes: "Grande foto verticale a sinistra + 4 ritratti verticali sulla destra." };
+    }
     if (l === "campaign-tvc" || l === "campaign-tvc-4") {
       return { minWidth: 1920, minHeight: 1080, orientation: "Widescreen 16:9 (Still TVC)", ratio: "1.77:1 (16:9)", notes: "Still video o fotogramma in formato cinematografico 16:9." };
     }
@@ -1058,6 +1061,17 @@ export const ModelForm: React.FC<ModelFormProps> = ({
             label4 = "4. FOTO BASSO SINISTRA (PORTRAIT)";
             label5 = "5. FOTO BASSO CENTRO (PORTRAIT)";
             label6 = "6. FOTO BASSO DESTRA (PORTRAIT)";
+          } else if (currentLayout === "campaign-5-hybrid") {
+            showLeft = true;
+            showCenter = true;
+            showRight = true;
+            show4 = true;
+            show5 = true;
+            labelLeft = "1. FOTO SINISTRA GRANDE (PORTRAIT SU TUTTA L'ALTEZZA)";
+            labelCenter = "2. FOTO GRIGLIA ALTO SINISTRA (ACCANTO A SINISTRA)";
+            labelRight = "3. FOTO GRIGLIA ALTO DESTRA (ACCANTO A DESTRA)";
+            label4 = "4. FOTO GRIGLIA BASSO SINISTRA (SOTTO FOTO 2)";
+            label5 = "5. FOTO GRIGLIA BASSO DESTRA (SOTTO FOTO 3)";
           }
 
           return (
@@ -2494,6 +2508,36 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                   </div>
                   <span className="text-[11px] font-bold block leading-none">Royal Enfield 3x2</span>
                   <span className="text-[9px] opacity-70 block">Griglia 6 Foto + Spazio Testi</span>
+                </button>
+
+                {/* 18. Campaign 5 Hybrid */}
+                <button
+                  type="button"
+                  id="layout-btn-campaign-5-hybrid"
+                  onClick={() => handleFieldChange("layout", "campaign-5-hybrid")}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
+                    model.layout === "campaign-5-hybrid"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-xs"
+                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex gap-1.5 w-full h-6 mb-1.5 opacity-80 justify-center items-center">
+                    {/* Left big item */}
+                    <div className="w-[18px] bg-slate-400 rounded-2xs h-[23px]" />
+                    {/* Right 2x2 grid */}
+                    <div className="flex flex-col gap-0.5 w-[25px] h-full justify-center">
+                      <div className="flex gap-0.5 justify-center w-full h-[11px]">
+                        <div className="w-[10px] bg-slate-400 rounded-3xs h-full" />
+                        <div className="w-[10px] bg-slate-400 rounded-3xs h-full" />
+                      </div>
+                      <div className="flex gap-0.5 justify-center w-full h-[11px]">
+                        <div className="w-[10px] bg-slate-400 rounded-3xs h-full" />
+                        <div className="w-[10px] bg-slate-400 rounded-3xs h-full" />
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold block leading-none">Campaign 5 Hybrid</span>
+                  <span className="text-[9px] opacity-70 block">Bento Grid: 1 Grande + 4 (2x2)</span>
                 </button>
               </div>
             </div>

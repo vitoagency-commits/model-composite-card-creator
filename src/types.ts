@@ -24,7 +24,7 @@ export interface ModelData {
   offsetYCenter: number;
   offsetXRight: number;
   offsetYRight: number;
-  layout?: "classic" | "duo" | "asymmetric-left" | "solo" | "grid-4" | "grid-6" | "editorial-6" | "grid-10" | "cinematic-2" | "campaign-2" | "campaign-2-portrait" | "campaign-wedding" | "campaign-3" | "campaign-seamless" | "campaign-tvc" | "campaign-solo" | "campaign-tvc-4" | "campaign-brand-6";
+  layout?: "classic" | "duo" | "asymmetric-left" | "solo" | "grid-4" | "grid-6" | "editorial-6" | "grid-10" | "cinematic-2" | "campaign-2" | "campaign-2-portrait" | "campaign-wedding" | "campaign-3" | "campaign-seamless" | "campaign-tvc" | "campaign-solo" | "campaign-tvc-4" | "campaign-brand-6" | "campaign-5-hybrid";
   campaignName?: string;
   customCaption?: string;
   tvcLabelLeft?: string;

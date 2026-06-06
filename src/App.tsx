@@ -287,6 +287,10 @@ export const disegnaModellaSuPDF = async (
     if (l === "campaign-brand-6") {
       return { w: 44, h: 58 };
     }
+    if (l === "campaign-5-hybrid") {
+      if (slotName === "Left") return { w: 120, h: 155 };
+      return { w: 72, h: 75.5 };
+    }
     if (l === "campaign-solo") {
       return { w: 150, h: 135 };
     }
@@ -390,7 +394,7 @@ export const disegnaModellaSuPDF = async (
     pdf.setFont("times", "bold");
     pdf.setFontSize(26);
     pdf.text((resolvedDati?.campaignName || "CONDÉ NAST").toUpperCase(), 148.5, 23, { align: "center" });
-  } else {
+  } else if (layout !== "campaign-5-hybrid") {
     // Agency Header Big
     if (!resolvedDati?.hideHeaderLogo) {
       pdf.setTextColor(3, 7, 18);
@@ -466,7 +470,7 @@ export const disegnaModellaSuPDF = async (
     }
 
     // Thin split line
-    if (layout !== "campaign-3" && layout !== "campaign-brand-6" && layout !== "campaign-tvc" && layout !== "campaign-tvc-4") {
+    if (layout !== "campaign-3" && layout !== "campaign-brand-6" && layout !== "campaign-tvc" && layout !== "campaign-tvc-4" && layout !== "campaign-5-hybrid") {
       pdf.setDrawColor(3, 7, 18);
       pdf.setLineWidth(0.4);
       pdf.line(15, 45, 282, 45);
@@ -1205,9 +1209,114 @@ export const disegnaModellaSuPDF = async (
     drawImageWithPlaceholder(immaginiElaborate[3], xCol1, yRow2, wImg, hImg, "Image 4");
     drawImageWithPlaceholder(immaginiElaborate[4], xCol2, yRow2, wImg, hImg, "Image 5");
     drawImageWithPlaceholder(immaginiElaborate[5], xCol3, yRow2, wImg, hImg, "Image 6");
+  } else if (layout === "campaign-5-hybrid") {
+    // Beautiful Bento Grid of 5 photos: 1 tall left, 4 in a 2x2 grid on right
+    const wLeft = 120;
+    const hLeft = 155;
+    const xLeft = 12;
+    const yLeft = 12;
+
+    drawImageWithPlaceholder(immaginiElaborate[0], xLeft, yLeft, wLeft, hLeft, "Foto Principale");
+
+    const wRight = 72;
+    const hRight = 75.5;
+    const xCol1 = 137;
+    const xCol2 = 213;
+    const yRow1 = 12;
+    const yRow2 = 91.5;
+
+    drawImageWithPlaceholder(immaginiElaborate[1], xCol1, yRow1, wRight, hRight, "Foto 2");
+    drawImageWithPlaceholder(immaginiElaborate[2], xCol2, yRow1, wRight, hRight, "Foto 3");
+    drawImageWithPlaceholder(immaginiElaborate[3], xCol1, yRow2, wRight, hRight, "Foto 4");
+    drawImageWithPlaceholder(immaginiElaborate[4], xCol2, yRow2, wRight, hRight, "Foto 5");
+
+    // Under left photo: Model Name (centered)
+    const xCenterText = 12 + (120 / 2); // 72
+    pdf.setTextColor(17, 24, 39);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(14);
+    pdf.text((nomeModella || "NOME MODELLO").toUpperCase(), xCenterText, 174, { align: "center" });
+
+    // Under left photo: Custom Caption / Instagram Handle
+    if (customCaption) {
+      const handleText = customCaption.startsWith("@") ? customCaption.toUpperCase() : `@${customCaption.toUpperCase()}`;
+      pdf.setTextColor(100, 116, 139);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.text(handleText, xCenterText, 179, { align: "center" });
+    }
+
+    // Divider Line at bottom
+    pdf.setDrawColor(241, 245, 249);
+    pdf.setLineWidth(0.3);
+    pdf.line(12, 185, 285, 185);
+
+    // Dynamic specs drawing list
+    let specX = 12;
+    const specsItems = [
+      { label: "HEIGHT", val: resolvedAltezza },
+      { label: "BUST", val: resolvedSeno },
+      { label: "WAIST", val: resolvedVita },
+      { label: "HIPS", val: resolvedFianchi },
+      { label: "SHOES", val: resolvedScarpe },
+      { label: "HAIR", val: resolvedCapelli },
+      { label: "EYES", val: resolvedOcchi },
+    ].filter(s => s.val);
+
+    specsItems.forEach((sp) => {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(115, 115, 115); // Gray for label
+      pdf.text(sp.label, specX, 192);
+      const widthLabel = pdf.getTextWidth(sp.label);
+      
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(17, 24, 39); // Dark for value
+      pdf.text(sp.val, specX + widthLabel + 1.5, 192);
+      const widthVal = pdf.getTextWidth(sp.val);
+      
+      specX += widthLabel + widthVal + 5; // Spacing to next spec
+    });
+
+    // Right Side: Agency details
+    const agencyName = agency?.name || "COSMOPOLITAN AGENCY";
+    const agencyPhone = agency?.phone || "333.59.64.357";
+    const agencyAddress = agency?.address || "via della Repubblica n°61";
+    const agencyCity = agency?.city || "Bisceglie (bt) 76011";
+    const agencyWeb = agency?.web || "";
+    const agencyEmail = agency?.email || "";
+
+    const line1 = `ADDRESS: ${agencyAddress}, ${agencyCity}`.toUpperCase();
+    let contactParts: string[] = [];
+    if (agencyPhone) contactParts.push(`TEL: ${agencyPhone}`);
+    if (agencyEmail) contactParts.push(`EMAIL: ${agencyEmail}`);
+    if (agencyWeb) contactParts.push(`WEB: ${agencyWeb}`);
+    const line2 = contactParts.join(" / ").toUpperCase();
+
+    if (agency?.logo) {
+      try {
+        pdf.addImage(agency.logo, "JPEG", 245, 186, 40, 6.5);
+      } catch (e) {
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(10.5);
+        pdf.setTextColor(17, 24, 39);
+        pdf.text("COSMOPOLITAN", 285, 189, { align: "right" });
+      }
+    } else {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10.5);
+      pdf.setTextColor(17, 24, 39);
+      pdf.text("COSMOPOLITAN", 285, 189, { align: "right" });
+    }
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(115, 115, 115);
+    pdf.text(line1, 285, 193.5, { align: "right" });
+    pdf.text(line2, 285, 197, { align: "right" });
   }
 
-  if (layout !== "editorial-6" && layout !== "cinematic-2" && layout !== "campaign-wedding" && layout !== "campaign-3" && layout !== "campaign-seamless" && layout !== "campaign-tvc" && layout !== "campaign-solo" && layout !== "campaign-tvc-4" && layout !== "campaign-brand-6") {
+  if (layout !== "editorial-6" && layout !== "cinematic-2" && layout !== "campaign-wedding" && layout !== "campaign-3" && layout !== "campaign-seamless" && layout !== "campaign-tvc" && layout !== "campaign-solo" && layout !== "campaign-tvc-4" && layout !== "campaign-brand-6" && layout !== "campaign-5-hybrid") {
     const yBarra = 180;
     const altezzaBarra = 15;
 
