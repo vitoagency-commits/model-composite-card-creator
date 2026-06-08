@@ -117,27 +117,30 @@ const CardImage: React.FC<CardImageProps> = ({ src, alt, zoom, offsetX, offsetY 
 };
 
 // Pure, high-fidelity vector representation of the official Cosmopolitan brand logo
-const CosmopolitanTextLogo: React.FC<{ variant?: "normal" | "small" | "tiny" }> = ({ variant = "normal" }) => {
-  // Split "modaeventipubblicitàcomunicazione" into individual characters with their respective colors
+const CosmopolitanTextLogo: React.FC<{ variant?: "normal" | "small" | "tiny"; themeColor?: string }> = ({ variant = "normal", themeColor }) => {
+  const isDark = themeColor === "charcoal";
+  const mainTextColor = isDark ? "text-slate-100" : "text-black";
+  const bordeauxColor = "text-[#b11030]";
+
   const subtitleChars = [
-    ...("moda".split("").map(char => ({ char, color: "text-[#b11030]" }))),
-    ...("eventi".split("").map(char => ({ char, color: "text-black" }))),
-    ...("pubb".split("").map(char => ({ char, color: "text-[#b11030]" }))),
-    ...("licitàcomunicazione".split("").map(char => ({ char, color: "text-black" })))
+    ...("moda".split("").map(char => ({ char, color: bordeauxColor }))),
+    ...("eventi".split("").map(char => ({ char, color: mainTextColor }))),
+    ...("pubblicità".split("").map(char => ({ char, color: bordeauxColor }))),
+    ...("comunicazione".split("").map(char => ({ char, color: mainTextColor })))
   ];
 
   const mainSize = variant === "tiny" ? "text-[13px]" : variant === "small" ? "text-[18px]" : "text-[26px]";
-  const subSize = variant === "tiny" ? "text-[4.2px]" : variant === "small" ? "text-[5.5px]" : "text-[7px]";
+  const subSize = variant === "tiny" ? "text-[4.2px]" : variant === "small" ? "text-[5.5px]" : "text-[7.2px]";
 
   return (
     <div className="flex flex-col select-none pointer-events-none flex-shrink-0 text-left w-fit" style={{ fontFamily: '"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif' }}>
       <div className={`${mainSize} leading-none flex items-center select-none font-light tracking-[0.03em]`} style={{ fontWeight: 300 }}>
-        <span className="text-black uppercase">COSMO</span>
+        <span className={`${mainTextColor} uppercase`}>COSMO</span>
         <span className="text-[#b11030] uppercase">POLITAN</span>
       </div>
-      <div className={`w-full flex justify-between ${subSize} leading-none mt-1 select-none font-light`} style={{ fontWeight: 300 }}>
+      <div className={`w-full flex justify-between ${subSize} leading-none mt-1 select-none font-light lowercase`} style={{ fontWeight: 300 }}>
         {subtitleChars.map((item, index) => (
-          <span key={index} className={`${item.color} lowercase`}>
+          <span key={index} className={item.color}>
             {item.char}
           </span>
         ))}
@@ -231,7 +234,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
       <WatermarkContext.Provider value={watermarkValue}>
         <div
           id={id}
-          className={`print-container bg-white relative flex flex-col justify-between select-none overflow-hidden ${fontStyles[fontFamily]}`}
+          className={`print-container relative flex flex-col justify-between select-none overflow-hidden ${fontStyles[fontFamily]} ${bgThemes[themeColor]}`}
           style={{
             width: "297mm",
             height: "210mm",
@@ -347,40 +350,40 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 
           {/* Middle: Model Name centered under left photo */}
           <div className="flex flex-col items-center justify-center mt-2" style={{ width: "120mm" }}>
-            <h2 className="text-[17px] font-sans font-extrabold uppercase tracking-[0.2em] text-slate-900 leading-none">
+            <h2 className={`text-[17px] font-extrabold uppercase tracking-[0.2em] ${textThemes[themeColor]} leading-none`}>
               {model.name || "NOME MODELLO"}
             </h2>
             {model.customCaption && (
-              <span className="text-[9px] font-mono text-slate-500 tracking-widest uppercase mt-1">
+              <span className={`text-[9px] font-mono ${labelThemes[themeColor]} tracking-widest uppercase mt-1`}>
                 {model.customCaption.startsWith("@") ? model.customCaption : `@${model.customCaption}`}
               </span>
             )}
           </div>
 
-          {/* Bottom Footer bar (White background, light/clean) */}
-          <div className="flex justify-between items-end w-full border-t border-slate-200 pt-2 pb-1 text-slate-900 mt-auto">
+          {/* Bottom Footer bar (Responsive layout colors) */}
+          <div className="flex justify-between items-end w-full border-t border-current/15 pt-2 pb-1 mt-auto">
             {/* Left side: Horizontal specifications */}
-            <div className="flex items-center gap-4 text-[10px] text-slate-500 font-sans tracking-wide">
+            <div className={`flex items-center gap-4 text-[10px] ${labelThemes[themeColor]} tracking-wide`}>
               {model.height && (
-                <span className="uppercase">Height <strong className="text-slate-900 font-bold">{model.height}</strong></span>
+                <span className="uppercase">Height <strong className={`${textThemes[themeColor]} font-bold`}>{model.height}</strong></span>
               )}
               {model.bust && (
-                <span className="uppercase">Bust <strong className="text-slate-900 font-bold">{model.bust}</strong></span>
+                <span className="uppercase">Bust <strong className={`${textThemes[themeColor]} font-bold`}>{model.bust}</strong></span>
               )}
               {model.waist && (
-                <span className="uppercase">Waist <strong className="text-slate-900 font-bold">{model.waist}</strong></span>
+                <span className="uppercase">Waist <strong className={`${textThemes[themeColor]} font-bold`}>{model.waist}</strong></span>
               )}
               {model.hips && (
-                <span className="uppercase">Hips <strong className="text-slate-900 font-bold">{model.hips}</strong></span>
+                <span className="uppercase">Hips <strong className={`${textThemes[themeColor]} font-bold`}>{model.hips}</strong></span>
               )}
               {model.shoes && (
-                <span className="uppercase">Shoes <strong className="text-slate-900 font-bold">{model.shoes}</strong></span>
+                <span className="uppercase">Shoes <strong className={`${textThemes[themeColor]} font-bold`}>{model.shoes}</strong></span>
               )}
               {model.hair && (
-                <span className="uppercase">Hair <strong className="text-slate-900 font-bold">{model.hair}</strong></span>
+                <span className="uppercase">Hair <strong className={`${textThemes[themeColor]} font-bold`}>{model.hair}</strong></span>
               )}
               {model.eyes && (
-                <span className="uppercase">Eyes <strong className="text-slate-900 font-bold">{model.eyes}</strong></span>
+                <span className="uppercase">Eyes <strong className={`${textThemes[themeColor]} font-bold`}>{model.eyes}</strong></span>
               )}
             </div>
 
@@ -390,29 +393,54 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 <img 
                   src={agency.logo} 
                   alt="Brand Logo" 
-                  className="h-7 w-auto object-contain flex-shrink-0 mb-0.5"
+                  style={{ height: model.bottomRightLogoHeight ? `${model.bottomRightLogoHeight}px` : "28px" }}
+                  className="w-auto object-contain flex-shrink-0 mb-0.5"
                   referrerPolicy="no-referrer"
                   crossOrigin={getCrossOrigin(agency.logo)}
                 />
               ) : (
                 <div className="mb-0.5">
-                  <CosmopolitanTextLogo variant="small" />
+                  <CosmopolitanTextLogo variant="small" themeColor={themeColor} />
                 </div>
               )}
-              <div className="flex flex-col text-[7.5px] leading-tight text-slate-500 font-sans uppercase tracking-wider">
-                <span>{agency.address || "via della Repubblica n°61"}{agency.city && `, ${agency.city}`}</span>
-                <span>
-                  {agency.phone && `Tel: ${agency.phone}`}
-                  {agency.email && ` / Email: ${agency.email}`}
-                  {agency.web && ` / Web: ${agency.web}`}
-                </span>
-              </div>
+              {(() => {
+                const agencyAddress = agency.address || "via della Repubblica n°61";
+                const agencyCity = agency.city || "Bisceglie (bt) 76011";
+                const line1Str = `ADDRESS: ${agencyAddress}, ${agencyCity}`.toUpperCase();
+
+                const parts = [];
+                if (agency.phone) parts.push(`TEL: ${agency.phone}`);
+                if (agency.email) parts.push(`EMAIL: ${agency.email}`);
+                if (agency.web) parts.push(`WEB: ${agency.web}`);
+                const line2Str = parts.join(" / ").toUpperCase();
+
+                return !model.hideContactsBlock ? (
+                  <div className="flex flex-col items-end mt-1.5 font-sans select-none text-right">
+                    {/* Line 1: Address (enlarged/spaced) */}
+                    <div 
+                      className={`text-[8px] font-bold uppercase ${textThemes[themeColor]} leading-none`}
+                      style={{ letterSpacing: "0.14em" }}
+                    >
+                      {line1Str}
+                    </div>
+                    {/* Line 2: Contact info (narrower/smaller characters) */}
+                    <div 
+                      className={`text-[5.6px] font-semibold uppercase mt-1 ${labelThemes[themeColor]} leading-none`}
+                      style={{ letterSpacing: "0.06em" }}
+                    >
+                      {line2Str}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
             </div>
           </div>
         </div>
       </WatermarkContext.Provider>
     );
   }
+
+
 
   return (
     <WatermarkContext.Provider value={watermarkValue}>
@@ -428,6 +456,30 @@ export const ModelCard: React.FC<ModelCardProps> = ({
         border: "1px solid rgba(0, 0, 0, 0.1)",
       }}
     >
+      {/* Top Center custom presentation text or logo */}
+      {(model.topCenterText || model.topCenterLogo) && (
+        <div 
+          className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center text-center gap-1 z-40 pointer-events-none select-none max-w-[280px]"
+          style={{ top: "8mm" }}
+        >
+          {model.topCenterLogo && (
+            <img
+              src={model.topCenterLogo}
+              alt="Top Center Logo"
+              className="object-contain"
+              style={{ height: `${model.topCenterLogoHeight || 10}mm` }}
+              referrerPolicy="no-referrer"
+              crossOrigin={getCrossOrigin(model.topCenterLogo)}
+            />
+          )}
+          {model.topCenterText && (
+            <span className="text-[9px] uppercase font-bold tracking-[0.25em] text-slate-800 leading-none">
+              {model.topCenterText}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* High Density Elegant Header Bar */}
       {layout === "campaign-solo" ? (
         <header className="relative z-30 flex justify-center items-center pt-3 pb-5 w-full select-none pointer-events-none">
@@ -1123,12 +1175,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 
           {/* EDITORIAL-6 HIGH-END LAYOUT WITH INTEGRATED CARD SPECS */}
           {layout === "editorial-6" && (
-            <>
-              {/* Section 1: Tall photo on the left */}
+            <div className="flex justify-between items-center w-full gap-0 select-none">
+              {/* Column 1: Left tall photo */}
               <div className="relative group flex flex-col items-center">
                 <div 
                   className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg flex flex-col justify-between"
-                  style={{ width: "74mm", height: "125mm" }}
+                  style={{ width: "80mm", height: "135mm" }}
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageLeft ? (
@@ -1142,38 +1194,58 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     ) : (
                       <div className="text-center p-2">
                         <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto Sinistra</p>
-                        <p className="text-[8px] text-stone-400">Carica Foto Sinistra</p>
+                        <p className="text-[8px] text-stone-400">Carica Foto</p>
                       </div>
                     )}
                   </div>
                 </div>
-                <span className="text-[7px] font-semibold uppercase tracking-[0.15em] text-slate-500 mt-0.5">COVER PROFILE</span>
               </div>
 
-              {/* Section 2: Measurements / Card Tech Specs & Name */}
+              {/* Column 2: Tech Specs & Spaced Model Name */}
               <div 
-                className="flex flex-col justify-center items-center px-1 py-1.5 self-stretch bg-white"
-                style={{ width: "50mm" }}
+                className="flex flex-col justify-center items-center py-2 self-stretch bg-white select-none"
+                style={{ width: "40mm", height: "135mm", marginLeft: "2mm", marginRight: "2mm" }}
               >
-                {/* Decorative Line above Name */}
-                <div className="w-16 h-[1.2px] bg-slate-950 mb-1" />
-                
-                {/* Model Name */}
-                <h3 className="text-[17px] font-serif uppercase tracking-[0.2em] text-slate-900 font-extrabold text-center py-0.5 leading-none">
-                  {model.name || "NOME"}
-                </h3>
-
-                {/* Decorative Line under Name */}
-                <div className="w-16 h-[1.2px] bg-slate-950 mt-1" />
+                {/* Tracked out model name with auto-scaling to prevent wrapping */}
+                {(() => {
+                  const name = (model.name || "NOME").toUpperCase();
+                  const len = name.length;
+                  let fontSize = "18px";
+                  let letterSpacing = "0.22em";
+                  if (len > 12) {
+                    fontSize = "11px";
+                    letterSpacing = "0.08em";
+                  } else if (len > 9) {
+                    fontSize = "13px";
+                    letterSpacing = "0.14em";
+                  } else if (len > 7) {
+                    fontSize = "15px";
+                    letterSpacing = "0.18em";
+                  } else if (len > 5) {
+                    fontSize = "16px";
+                    letterSpacing = "0.20em";
+                  }
+                  return (
+                    <h3 
+                      className="font-serif uppercase text-slate-900 font-extrabold text-center py-0.5 leading-none whitespace-nowrap"
+                      style={{ fontSize, letterSpacing }}
+                    >
+                      {name}
+                    </h3>
+                  );
+                })()}
 
                 {/* Decorative top cross motif */}
-                <div className="flex flex-col items-center mt-2.5 mb-1.5 select-none">
-                  <div className="w-[1px] h-4 bg-slate-650" />
-                  <div className="w-6 h-[1px] bg-slate-650" />
+                <div className="flex flex-col items-center mt-4 mb-2 select-none">
+                  <div className="w-[1px] h-[6mm] bg-slate-400" />
+                  <div className="w-[8mm] h-[1px] bg-slate-400" />
                 </div>
 
-                {/* Centered characteristics stack to mimic the image */}
-                <div className="flex flex-col items-center justify-center space-y-1 text-center text-slate-900 font-sans text-[9px] tracking-wide leading-tight my-1">
+                {/* Centered measurements stats list */}
+                <div 
+                  className="flex flex-col items-center justify-center space-y-1.5 text-center text-slate-900 font-sans text-[9px] leading-snug my-2 select-none w-full"
+                  style={{ letterSpacing: "0.04em" }}
+                >
                   <div>
                     Height : {model.height ? `${model.height}cm` : "—"} {model.height && ` / ${(() => {
                       const cm = parseFloat(model.height);
@@ -1191,11 +1263,8 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     Waist : {model.waist ? `${model.waist}cm` : "—"} {model.waist && ` / ${Math.round(parseFloat(model.waist) / 2.54)}"`}
                   </div>
                   <div>
-                    Hips : {model.hips ? `${model.hips}cm` : "—"} {model.hips && ` / ${Math.round(parseFloat(model.hips) / 2.54)}"`}
+                    Hip : {model.hips ? `${model.hips}cm` : "—"} {model.hips && ` / ${Math.round(parseFloat(model.hips) / 2.54)}"`}
                   </div>
-                  {model.shoes && (
-                    <div>Shoes: {model.shoes}</div>
-                  )}
                   {model.hair && (
                     <div className="capitalize">{model.hair} Hair</div>
                   )}
@@ -1205,17 +1274,17 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 </div>
 
                 {/* Decorative bottom cross motif */}
-                <div className="flex flex-col items-center mt-1.5 select-none">
-                  <div className="w-6 h-[1px] bg-slate-650" />
-                  <div className="w-[1px] h-4 bg-slate-650" />
+                <div className="flex flex-col items-center mt-2 select-none">
+                  <div className="w-[8mm] h-[1px] bg-slate-400" />
+                  <div className="w-[1px] h-[6mm] bg-slate-400" />
                 </div>
               </div>
 
-              {/* Section 3: Central vertically-oriented portrait next to specs */}
+              {/* Column 3: Center tall portrait next to specs */}
               <div className="relative group flex flex-col items-center">
                 <div 
                   className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg flex flex-col justify-between"
-                  style={{ width: "56mm", height: "125mm" }}
+                  style={{ width: "66mm", height: "135mm" }}
                 >
                   <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
                     {model.imageCenter ? (
@@ -1229,23 +1298,22 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     ) : (
                       <div className="text-center p-2">
                         <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto Centro</p>
-                        <p className="text-[8px] text-stone-400">Carica Foto Centro</p>
+                        <p className="text-[8px] text-stone-400">Carica Foto</p>
                       </div>
                     )}
                   </div>
                 </div>
-                <span className="text-[7px] font-semibold uppercase tracking-[0.15em] text-slate-500 mt-0.5">EDITORIAL HIGHLIGHT</span>
               </div>
 
-              {/* Section 4: 2x2 collage of 4 standard portraits on the far right */}
+              {/* Column 4: 2x2 collage of 4 standard portraits on the far right */}
               <div 
-                className="grid grid-cols-2 gap-x-[3mm] gap-y-[3mm]"
-                style={{ width: "79mm", height: "125mm" }}
+                className="grid grid-cols-2"
+                style={{ width: "81.5mm", height: "135mm", marginLeft: "1.5mm", gap: "1.5mm" }}
               >
                 {/* Grid Item 1: imageRight */}
                 <div className="flex flex-col items-center">
                   <div 
-                    className="bg-white p-0.5 shadow-xs border border-slate-200/60 transition-all duration-300 w-[38mm] h-[55.5mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
+                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
                   >
                     {model.imageRight ? (
                       <CardImage
@@ -1264,7 +1332,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 {/* Grid Item 2: image4 */}
                 <div className="flex flex-col items-center">
                   <div 
-                    className="bg-white p-0.5 shadow-xs border border-slate-200/60 transition-all duration-300 w-[38mm] h-[55.5mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
+                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
                   >
                     {model.image4 ? (
                       <CardImage
@@ -1283,7 +1351,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 {/* Grid Item 3: image5 */}
                 <div className="flex flex-col items-center animate-fade-in">
                   <div 
-                    className="bg-white p-0.5 shadow-xs border border-slate-200/60 transition-all duration-300 w-[38mm] h-[55.5mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
+                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
                   >
                     {model.image5 ? (
                       <CardImage
@@ -1302,7 +1370,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 {/* Grid Item 4: image6 */}
                 <div className="flex flex-col items-center">
                   <div 
-                    className="bg-white p-0.5 shadow-xs border border-slate-200/60 transition-all duration-300 w-[38mm] h-[55.5mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
+                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
                   >
                     {model.image6 ? (
                       <CardImage
@@ -1318,7 +1386,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   </div>
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {/* GRID-10 5x2 LAYOUT (10 IMAGES) */}
@@ -2581,69 +2649,69 @@ export const ModelCard: React.FC<ModelCardProps> = ({
       </div>
 
       {/* High Density Professional Characteristics Footer block */}
-      {!model.hideSpecsBar && layout !== "campaign-brand-6" && layout !== "campaign-5-hybrid" ? (
-        <footer className="bg-slate-950 text-white rounded-md p-4 mt-2 shadow-lg border border-slate-800">
+      {!model.hideSpecsBar && layout !== "campaign-brand-6" && layout !== "campaign-5-hybrid" && layout !== "editorial-6" ? (
+        <footer className={model.specsBarWhiteBg ? "bg-white text-slate-950 rounded-md p-4 mt-2" : "bg-slate-950 text-white rounded-md p-4 mt-2 shadow-lg border border-slate-800"}>
           <div className="grid grid-cols-8 gap-1.5 text-left w-full">
             {/* H 1 */}
-            <div className="flex flex-col pl-2 border-r border-slate-800/80">
-              <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider block">ALTEZZA/height</span>
-              <span className="text-sm font-bold tracking-tight text-white block mt-0.5 truncate">
+            <div className={`flex flex-col pl-2 ${model.specsBarWhiteBg ? "" : "border-r border-slate-800/80"}`}>
+              <span className={`text-[8px] font-semibold uppercase tracking-wider block ${model.specsBarWhiteBg ? "text-slate-500" : "text-slate-400"}`}>ALTEZZA/height</span>
+              <span className={`text-sm font-bold tracking-tight block mt-0.5 truncate ${model.specsBarWhiteBg ? "text-slate-950" : "text-white"}`}>
                 {model.height ? `${model.height} cm` : "—"}
               </span>
             </div>
 
             {/* H 2 */}
-            <div className="flex flex-col pl-2 border-r border-slate-800/80">
-              <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider block">SENO/bust</span>
-              <span className="text-sm font-bold tracking-tight text-white block mt-0.5 truncate">
+            <div className={`flex flex-col pl-2 ${model.specsBarWhiteBg ? "" : "border-r border-slate-800/80"}`}>
+              <span className={`text-[8px] font-semibold uppercase tracking-wider block ${model.specsBarWhiteBg ? "text-slate-500" : "text-slate-400"}`}>SENO/bust</span>
+              <span className={`text-sm font-bold tracking-tight block mt-0.5 truncate ${model.specsBarWhiteBg ? "text-slate-950" : "text-white"}`}>
                 {model.bust ? `${model.bust} cm` : "—"}
               </span>
             </div>
 
             {/* H 3 */}
-            <div className="flex flex-col pl-2 border-r border-slate-800/80">
-              <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider block">VITA/waist</span>
-              <span className="text-sm font-bold tracking-tight text-white block mt-0.5 truncate">
+            <div className={`flex flex-col pl-2 ${model.specsBarWhiteBg ? "" : "border-r border-slate-800/80"}`}>
+              <span className={`text-[8px] font-semibold uppercase tracking-wider block ${model.specsBarWhiteBg ? "text-slate-500" : "text-slate-400"}`}>VITA/waist</span>
+              <span className={`text-sm font-bold tracking-tight block mt-0.5 truncate ${model.specsBarWhiteBg ? "text-slate-950" : "text-white"}`}>
                 {model.waist ? `${model.waist} cm` : "—"}
               </span>
             </div>
 
             {/* H 4 */}
-            <div className="flex flex-col pl-2 border-r border-slate-800/80">
-              <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider block">FIANCHI/hips</span>
-              <span className="text-sm font-bold tracking-tight text-white block mt-0.5 truncate">
+            <div className={`flex flex-col pl-2 ${model.specsBarWhiteBg ? "" : "border-r border-slate-800/80"}`}>
+              <span className={`text-[8px] font-semibold uppercase tracking-wider block ${model.specsBarWhiteBg ? "text-slate-500" : "text-slate-400"}`}>FIANCHI/hips</span>
+              <span className={`text-sm font-bold tracking-tight block mt-0.5 truncate ${model.specsBarWhiteBg ? "text-slate-950" : "text-white"}`}>
                 {model.hips ? `${model.hips} cm` : "—"}
               </span>
             </div>
 
             {/* H 5 */}
-            <div className="flex flex-col pl-2 border-r border-slate-800/80">
-              <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider block">SCARPE/shoes</span>
-              <span className="text-sm font-bold tracking-tight text-white block mt-0.5 truncate">
+            <div className={`flex flex-col pl-2 ${model.specsBarWhiteBg ? "" : "border-r border-slate-800/80"}`}>
+              <span className={`text-[8px] font-semibold uppercase tracking-wider block ${model.specsBarWhiteBg ? "text-slate-500" : "text-slate-400"}`}>SCARPE/shoes</span>
+              <span className={`text-sm font-bold tracking-tight block mt-0.5 truncate ${model.specsBarWhiteBg ? "text-slate-950" : "text-white"}`}>
                 {model.shoes || "—"}
               </span>
             </div>
 
             {/* H 6 */}
-            <div className="flex flex-col pl-2 border-r border-slate-800/80">
-              <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider block">OCCHI/eyes</span>
-              <span className="text-sm font-bold tracking-tight text-white block mt-0.5 truncate" title={model.eyes}>
+            <div className={`flex flex-col pl-2 ${model.specsBarWhiteBg ? "" : "border-r border-slate-800/80"}`}>
+              <span className={`text-[8px] font-semibold uppercase tracking-wider block ${model.specsBarWhiteBg ? "text-slate-500" : "text-slate-400"}`}>OCCHI/eyes</span>
+              <span className={`text-sm font-bold tracking-tight block mt-0.5 truncate ${model.specsBarWhiteBg ? "text-slate-950" : "text-white"}`} title={model.eyes}>
                 {model.eyes || "—"}
               </span>
             </div>
 
             {/* H 7 */}
-            <div className="flex flex-col pl-2 border-r border-slate-800/80">
-              <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider block">CAPELLI/hair</span>
-              <span className="text-sm font-bold tracking-tight text-white block mt-0.5 truncate" title={model.hair}>
+            <div className={`flex flex-col pl-2 ${model.specsBarWhiteBg ? "" : "border-r border-slate-800/80"}`}>
+              <span className={`text-[8px] font-semibold uppercase tracking-wider block ${model.specsBarWhiteBg ? "text-slate-500" : "text-slate-400"}`}>CAPELLI/hair</span>
+              <span className={`text-sm font-bold tracking-tight block mt-0.5 truncate ${model.specsBarWhiteBg ? "text-slate-950" : "text-white"}`} title={model.hair}>
                 {model.hair || "—"}
               </span>
             </div>
 
             {/* H 8 */}
             <div className="flex flex-col pl-2">
-              <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider block">TAGLIA S/I size</span>
-              <span className="text-sm font-bold tracking-tight text-amber-400 block mt-0.5 truncate">
+              <span className={`text-[8px] font-semibold uppercase tracking-wider block ${model.specsBarWhiteBg ? "text-slate-500" : "text-slate-400"}`}>TAGLIA S/I size</span>
+              <span className={`text-sm font-bold tracking-tight block mt-0.5 truncate ${model.specsBarWhiteBg ? "text-amber-600" : "text-amber-400"}`}>
                 {model.sizeUpper ? `${model.sizeUpper}` : "—"} / {model.sizeLower ? `${model.sizeLower}` : "—"}
               </span>
             </div>
@@ -2662,6 +2730,26 @@ export const ModelCard: React.FC<ModelCardProps> = ({
           </span>
         </footer>
       ) : null}
+
+      {/* Optional bottom-right album logo */}
+      {model.showBottomRightLogo && (() => {
+        const selectedLogo = (model.useShortLogoForBottomRight && agency.logoBreve) ? agency.logoBreve : agency.logo;
+        if (!selectedLogo) return null;
+        return (
+          <div 
+            className="absolute bottom-4 right-6 z-40 pointer-events-none flex items-center justify-end select-none"
+            style={{ height: `${model.bottomRightLogoHeight || 28}px` }}
+          >
+            <img 
+              src={selectedLogo} 
+              alt="Album Bottom Right Logo" 
+              className="object-contain h-full w-auto max-h-full"
+              referrerPolicy="no-referrer"
+              crossOrigin={getCrossOrigin(selectedLogo)}
+            />
+          </div>
+        );
+      })()}
 
     </div>
     </WatermarkContext.Provider>

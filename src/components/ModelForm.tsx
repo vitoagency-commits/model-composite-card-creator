@@ -568,6 +568,21 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                     Nascondi Barra dei Dati Fisici
                   </label>
                 </div>
+
+                {!model.hideSpecsBar && (
+                  <div className="flex items-center gap-2 pl-6 pt-0.5">
+                    <input
+                      type="checkbox"
+                      id="specsBarWhiteBg"
+                      checked={model.specsBarWhiteBg || false}
+                      onChange={(e) => handleFieldChange("specsBarWhiteBg", e.target.checked)}
+                      className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                    />
+                    <label htmlFor="specsBarWhiteBg" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                      Sfondo bianco con testi neri (Inverti colori barra)
+                    </label>
+                  </div>
+                )}
                 {model.hideSpecsBar && (
                   <div className="space-y-2">
                     <div>
@@ -747,6 +762,165 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                         </p>
                       </div>
                     )}
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 pt-3.5 space-y-3">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block">Logo Presentazione Album (Basso Destra)</span>
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="showBottomRightLogo"
+                        checked={model.showBottomRightLogo || false}
+                        onChange={(e) => handleFieldChange("showBottomRightLogo", e.target.checked)}
+                        className="h-4 w-4 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                      />
+                      <label htmlFor="showBottomRightLogo" className="text-[11px] font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider">
+                        Mostra Logo in Basso a Destra
+                      </label>
+                    </div>
+                    {model.showBottomRightLogo && (
+                      <div className="bg-white p-3 border border-slate-100 rounded-lg space-y-3.5">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Altezza Logo: {model.bottomRightLogoHeight || 28}px</label>
+                            <span className="text-[10px] font-semibold text-slate-400">Ottimale: 25px - 32px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="25"
+                            max="32"
+                            step="1"
+                            value={model.bottomRightLogoHeight || 28}
+                            onChange={(e) => handleFieldChange("bottomRightLogoHeight", parseInt(e.target.value, 10))}
+                            className="w-full accent-slate-900 cursor-pointer h-1.5 bg-slate-100 rounded-lg appearance-none"
+                          />
+                          <p className="text-[9px] text-slate-400 leading-normal">
+                            Regola l'altezza in pixel per rendere il logo leggibile senza rubare l'attenzione dalla modella.
+                          </p>
+                        </div>
+
+                        {/* Choice of Logo */}
+                        <div className="border-t border-slate-100 pt-2.5 flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="useShortLogoForBottomRight"
+                            checked={model.useShortLogoForBottomRight || false}
+                            onChange={(e) => handleFieldChange("useShortLogoForBottomRight", e.target.checked)}
+                            className="h-3.5 w-3.5 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                          />
+                          <label htmlFor="useShortLogoForBottomRight" className="text-[10px] font-bold text-slate-600 cursor-pointer select-none uppercase tracking-wider">
+                            Preferisci Logo Breve (CP) se presente
+                          </label>
+                        </div>
+
+                        {/* Avoid overlapping - hiding contact info */}
+                        <div className="border-t border-slate-100 pt-2.5 flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="hideContactsBlock"
+                            checked={model.hideContactsBlock || false}
+                            onChange={(e) => handleFieldChange("hideContactsBlock", e.target.checked)}
+                            className="h-3.5 w-3.5 rounded-sm border-slate-300 text-slate-950 focus:ring-slate-950 cursor-pointer"
+                          />
+                          <label htmlFor="hideContactsBlock" className="text-[10px] font-bold text-amber-700 cursor-pointer select-none uppercase tracking-wider">
+                            Nascondi Contatti / Indirizzo (Evita sovrapposizioni)
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 pt-3.5 space-y-3">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block">Logo / Testo Intestazione Centrale (Catalogo)</span>
+                  <p className="text-[9px] text-slate-400">Inserisci un testo o carica un logo specifico da mostrare esattamente al centro della testata in tutti i layout (perfetto per cataloghi o presentazioni personalizzate).</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-150">
+                    {/* Top Center Text */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Testo Centrato</label>
+                      <input
+                        type="text"
+                        placeholder="es. PRESENTATION 2026/27"
+                        value={model.topCenterText || ""}
+                        onChange={(e) => handleFieldChange("topCenterText", e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg py-1.5 px-2.5 text-xs text-slate-800 focus:outline-hidden"
+                      />
+                    </div>
+
+                    {/* Top Center Logo */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Logo Centrato</label>
+                      <div className="flex items-center gap-2">
+                        {model.topCenterLogo ? (
+                          <div className="relative w-16 h-10 bg-white border border-slate-200 rounded-md p-1 flex items-center justify-center overflow-hidden">
+                            <img src={model.topCenterLogo} alt="Logo" className="max-w-full max-h-full object-contain" />
+                            <button
+                              type="button"
+                              onClick={() => handleFieldChange("topCenterLogo", undefined)}
+                              className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors flex items-center justify-center"
+                              title="Rimuovi"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-2 h-2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex-grow">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              id="top-center-logo-upload"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  try {
+                                    const compressed = await resizeAndCompressImage(file, 400, 200, 0.85);
+                                    handleFieldChange("topCenterLogo", compressed);
+                                  } catch (err) {
+                                    console.error("Failed to compress top center logo", err);
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      if (event.target?.result) {
+                                        handleFieldChange("topCenterLogo", event.target.result as string);
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById("top-center-logo-upload")?.click()}
+                              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[10px] py-1.5 px-2.5 rounded-md transition-colors text-center"
+                            >
+                              Carica Logo Centrato
+                            </button>
+                          </div>
+                        )}
+                        
+                        {model.topCenterLogo && (
+                          <div className="w-24">
+                            <div className="text-[8px] font-bold text-slate-400 mb-0.5">ALTEZZA: {model.topCenterLogoHeight || 10}mm</div>
+                            <input
+                              type="range"
+                              min="5"
+                              max="20"
+                              step="1"
+                              value={model.topCenterLogoHeight || 10}
+                              onChange={(e) => handleFieldChange("topCenterLogoHeight", parseInt(e.target.value, 10))}
+                              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -2759,8 +2933,8 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                   </div>
                 </div>
                 <div className="pt-2 border-t border-slate-100">
-                  <label className="text-[10px] text-slate-500 block font-semibold mb-1">Logo Personalizzato dell'Agenzia</label>
-                  <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-150">
+                  <label className="text-[10px] text-slate-500 block font-semibold mb-1">Logo Personalizzato dell'Agenzia (Esteso)</label>
+                  <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-150 mb-3">
                     <div className="w-28 h-12 bg-white rounded-md border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative shadow-inner p-1">
                       {agency.logo ? (
                         <img src={agency.logo} alt="Logo" className="max-w-full max-h-full object-contain" />
@@ -2819,7 +2993,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                           onClick={() => document.getElementById("agency-logo-upload")?.click()}
                           className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[10px] py-1 px-2 rounded-md transition-colors text-center"
                         >
-                          Carica Logo
+                          Carica Logo Esteso
                         </button>
                         {agency.logo && (
                           <button
@@ -2831,7 +3005,65 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                           </button>
                         )}
                       </div>
-                      <p className="text-[8px] text-slate-400">Trascina o carica il file del tuo brand (es. l'immagine circolare caricata in chat)</p>
+                      <p className="text-[8px] text-slate-400">Trascina o carica il file del tuo brand principale (es. versione estesa)</p>
+                    </div>
+                  </div>
+
+                  <label className="text-[10px] text-slate-500 block font-semibold mb-1">Logo Breve / Simbolo dell'Agenzia (es. CP)</label>
+                  <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-150">
+                    <div className="w-28 h-12 bg-white rounded-md border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative shadow-inner p-1">
+                      {agency.logoBreve ? (
+                        <img src={agency.logoBreve} alt="Logo Breve" className="max-w-full max-h-full object-contain" />
+                      ) : (
+                        <div className="text-[16px] font-black text-slate-300 select-none tracking-widest font-mono">
+                          CP
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-grow flex flex-col gap-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="agency-short-logo-upload"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            try {
+                              const compressed = await resizeAndCompressImage(file, 200, 200, 0.85);
+                              onChangeAgency({ ...agency, logoBreve: compressed });
+                            } catch (err) {
+                              console.error("Failed to compress short logo", err);
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                if (event.target?.result) {
+                                  onChangeAgency({ ...agency, logoBreve: event.target.result as string });
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }
+                        }}
+                      />
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById("agency-short-logo-upload")?.click()}
+                          className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[10px] py-1 px-2 rounded-md transition-colors text-center"
+                        >
+                          Carica Logo Breve
+                        </button>
+                        {agency.logoBreve && (
+                          <button
+                            type="button"
+                            onClick={() => onChangeAgency({ ...agency, logoBreve: undefined })}
+                            className="bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-[10px] px-2 py-1 rounded-md transition-colors"
+                          >
+                            Rimuovi Logo Breve
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[8px] text-slate-400">Inserisci una versione ridotta (es. il cerchio con le sole lettere CP) per album o layout ad alta densità</p>
                     </div>
                   </div>
                 </div>

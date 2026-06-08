@@ -94,6 +94,31 @@ export const disegnaModellaSuPDF = async (
   const customCaption = resolvedDati?.customCaption || "";
   const parsedThemeColor = globalThemeColor || resolvedDati?.themeColor || "silver";
 
+  // Define theme colors for the text logo in the PDF footer and header
+  let mainColorRGB = [17, 24, 39]; // Default dark slate
+  if (parsedThemeColor === "charcoal") {
+    mainColorRGB = [241, 245, 249]; // Whiteish
+  } else if (parsedThemeColor === "beige") {
+    mainColorRGB = [69, 26, 3]; // Amber-950
+  } else if (parsedThemeColor === "gold") {
+    mainColorRGB = [41, 37, 36]; // Stone-800
+  } else if (parsedThemeColor === "white") {
+    mainColorRGB = [38, 38, 38]; // Neutral-800
+  }
+  const bordeauxColorRGB = [190, 24, 74]; // Official burgundy #be184a
+
+  // Adaptive color for address and contact labels
+  let labelColorRGB = [115, 115, 115]; // Slate-500
+  if (parsedThemeColor === "charcoal") {
+    labelColorRGB = [156, 163, 175]; // Slate-400
+  } else if (parsedThemeColor === "beige") {
+    labelColorRGB = [120, 53, 4]; // Warm brown
+  } else if (parsedThemeColor === "gold") {
+    labelColorRGB = [100, 116, 139]; // Muted slate
+  } else if (parsedThemeColor === "white") {
+    labelColorRGB = [115, 115, 115]; // Neutral grey
+  }
+
   const foto1 = resolvedDati?.foto1 || resolvedDati?.imageLeft || "";
   const foto2 = resolvedDati?.foto2 || resolvedDati?.imageCenter || "";
   const foto3 = resolvedDati?.foto3 || resolvedDati?.imageRight || "";
@@ -250,9 +275,9 @@ export const disegnaModellaSuPDF = async (
       return { w: 87, h: 55 };
     }
     if (l === "editorial-6") {
-      if (slotName === "Left") return { w: 74, h: 125 };
-      if (slotName === "Center") return { w: 56, h: 125 };
-      return { w: 38, h: 55.5 };
+      if (slotName === "Left") return { w: 80, h: 135 };
+      if (slotName === "Center") return { w: 66, h: 135 };
+      return { w: 40, h: 66.75 };
     }
     if (l === "grid-10") {
       return { w: 52, h: 61 };
@@ -397,15 +422,54 @@ export const disegnaModellaSuPDF = async (
   } else if (layout !== "campaign-5-hybrid") {
     // Agency Header Big
     if (!resolvedDati?.hideHeaderLogo) {
-      pdf.setTextColor(3, 7, 18);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(26);
-      pdf.text("COSMOPOLITAN", 15, 18);
-      
-      pdf.setTextColor(190, 24, 74); // Bordeaux
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(7.5);
-      pdf.text("moda e v e n t i p u b b l i c i t à c o m u n i c a z i o n e", 15, 22);
+      const drawCosmopolitanHeader = () => {
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(26);
+        
+        const widthCosmo = pdf.getTextWidth("COSMO");
+        const widthPolitan = pdf.getTextWidth("POLITAN");
+        const totalWidthHeader = widthCosmo + widthPolitan;
+
+        // Draw COSMO
+        pdf.setTextColor(mainColorRGB[0], mainColorRGB[1], mainColorRGB[2]);
+        pdf.text("COSMO", 15, 18);
+        
+        // Draw POLITAN
+        pdf.setTextColor(bordeauxColorRGB[0], bordeauxColorRGB[1], bordeauxColorRGB[2]);
+        pdf.text("POLITAN", 15 + widthCosmo, 18);
+        
+        // Draw Subtitle "modaeventipubblicitàcomunicazione" perfectly spaced under the logo
+        const headerSubChars = [
+          ...("moda".split("").map(c => ({ char: c, color: bordeauxColorRGB }))),
+          ...("eventi".split("").map(c => ({ char: c, color: mainColorRGB }))),
+          ...("pubblicità".split("").map(c => ({ char: c, color: bordeauxColorRGB }))),
+          ...("comunicazione".split("").map(c => ({ char: c, color: mainColorRGB })))
+        ];
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7.5);
+        
+        const spacing = totalWidthHeader / (headerSubChars.length - 1);
+        
+        headerSubChars.forEach((item, index) => {
+          pdf.setTextColor(item.color[0], item.color[1], item.color[2]);
+          pdf.text(item.char, 15 + index * spacing, 22.2);
+        });
+      };
+
+      if (agency?.logo) {
+        try {
+          const aspect = await getBase64ImageAspectRatio(agency.logo);
+          const logoHeightMm = 10; // ≈ h-10 matching HTML
+          const logoWidthMm = logoHeightMm * aspect;
+          pdf.addImage(agency.logo, "JPEG", 15, 10, logoWidthMm, logoHeightMm);
+        } catch (e) {
+          console.error("Error drawing agency logo in PDF header:", e);
+          drawCosmopolitanHeader();
+        }
+      } else {
+        drawCosmopolitanHeader();
+      }
     }
 
     // Model Name Right
@@ -469,8 +533,34 @@ export const disegnaModellaSuPDF = async (
       }
     }
 
+    // Top-Center Custom Logo and/or Text for Presentation & Catalogues
+    if (resolvedDati?.topCenterLogo || resolvedDati?.topCenterText) {
+      let topCenterY = 10;
+      
+      if (resolvedDati?.topCenterLogo) {
+        try {
+          const aspect = await getBase64ImageAspectRatio(resolvedDati.topCenterLogo);
+          const logoHeightMm = resolvedDati.topCenterLogoHeight || 10;
+          const logoWidthMm = logoHeightMm * aspect;
+          const logoXMm = 148.5 - logoWidthMm / 2;
+          
+          pdf.addImage(resolvedDati.topCenterLogo, "JPEG", logoXMm, topCenterY, logoWidthMm, logoHeightMm);
+          topCenterY += logoHeightMm + 2; // Add spacing if there is also text
+        } catch (e) {
+          console.error("Error drawing top center logo in PDF:", e);
+        }
+      }
+      
+      if (resolvedDati?.topCenterText) {
+        pdf.setTextColor(3, 7, 18);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(7.5);
+        pdf.text(resolvedDati.topCenterText.toUpperCase(), 148.5, topCenterY + 2.5, { align: "center" });
+      }
+    }
+
     // Thin split line
-    if (layout !== "campaign-3" && layout !== "campaign-brand-6" && layout !== "campaign-tvc" && layout !== "campaign-tvc-4" && layout !== "campaign-5-hybrid") {
+    if (layout !== "campaign-3" && layout !== "campaign-brand-6" && layout !== "campaign-tvc" && layout !== "campaign-tvc-4" && layout !== "campaign-5-hybrid" && layout !== "editorial-6") {
       pdf.setDrawColor(3, 7, 18);
       pdf.setLineWidth(0.4);
       pdf.line(15, 45, 282, 45);
@@ -624,42 +714,69 @@ export const disegnaModellaSuPDF = async (
     drawImageWithPlaceholder(immaginiElaborate[9], colsX[4], yFoto + h + 3.5, w, h, "Foto 10");
 
   } else if (layout === "editorial-6") {
-    const wLeft = 74;
-    const hLeft = 125;
-    drawImageWithPlaceholder(immaginiElaborate[0], 15, yFoto, wLeft, hLeft, "Cover Profile");
-    drawLabel("COVER PROFILE", 15, yFoto + hLeft + 4, wLeft);
+    const wLeft = 80;
+    const hLeft = 135;
+    drawImageWithPlaceholder(immaginiElaborate[0], 12, yFoto, wLeft, hLeft, "Cover Profile");
 
-    const wCenter = 56;
-    const hCenter = 125;
-    drawImageWithPlaceholder(immaginiElaborate[1], 145, yFoto, wCenter, hCenter, "Editorial Portrait");
-    drawLabel("EDITORIAL HIGHLIGHT", 145, yFoto + hCenter + 4, wCenter);
+    const wCenter = 66;
+    const hCenter = 135;
+    drawImageWithPlaceholder(immaginiElaborate[1], 136, yFoto, wCenter, hCenter, "Editorial Portrait");
 
-    const wGrid = 38;
-    const hGrid = 55.5;
-    const xGridL = 203;
-    const xGridR = 244;
+    const wGrid = 40;
+    const hGrid = 66.75;
+    const xGridL = 203.5;
+    const xGridR = 245;
     drawImageWithPlaceholder(immaginiElaborate[2], xGridL, yFoto, wGrid, hGrid, "Foto 3");
     drawImageWithPlaceholder(immaginiElaborate[3], xGridR, yFoto, wGrid, hGrid, "Foto 4");
 
-    const yGridBottom = yFoto + hGrid + 14;
+    const yGridBottom = yFoto + hGrid + 1.5;
     drawImageWithPlaceholder(immaginiElaborate[4], xGridL, yGridBottom, wGrid, hGrid, "Foto 5");
     drawImageWithPlaceholder(immaginiElaborate[5], xGridR, yGridBottom, wGrid, hGrid, "Foto 6");
 
-    pdf.setDrawColor(3, 7, 18);
-    pdf.setLineWidth(0.4);
-    pdf.line(92 + 10, 75, 92 + 40, 75);
-    
     pdf.setTextColor(3, 7, 18);
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(19);
-    const displayName = nomeModella.length > 15 ? nomeModella.substring(0, 15) + "..." : nomeModella;
-    pdf.text(displayName, 92 + 25, 83, { align: "center" });
-
-    pdf.line(92 + 10, 88, 92 + 40, 88);
+    
+    let fontSize = 19;
+    let spacing = "   "; // Default 3 spaces
+    const maxAllowedWidth = 30; // Stay safely within the 44mm column gap
+    
+    const displayName = nomeModella.toUpperCase();
+    let displayNameSpaced = displayName.split("").join(spacing);
+    pdf.setFontSize(fontSize);
+    let textWidth = pdf.getTextWidth(displayNameSpaced);
+    
+    // If it is too wide, try 2 spaces
+    if (textWidth > maxAllowedWidth) {
+      spacing = "  ";
+      displayNameSpaced = displayName.split("").join(spacing);
+      textWidth = pdf.getTextWidth(displayNameSpaced);
+    }
+    
+    // If it is still too wide, try 1 space
+    if (textWidth > maxAllowedWidth) {
+      spacing = " ";
+      displayNameSpaced = displayName.split("").join(spacing);
+      textWidth = pdf.getTextWidth(displayNameSpaced);
+    }
+    
+    // If it is still too wide, do not use any spacing
+    if (textWidth > maxAllowedWidth) {
+      displayNameSpaced = displayName;
+      textWidth = pdf.getTextWidth(displayNameSpaced);
+    }
+    
+    // If it remains too wide, scale down the font size iteratively
+    while (textWidth > maxAllowedWidth && fontSize > 8) {
+      fontSize -= 1;
+      pdf.setFontSize(fontSize);
+      textWidth = pdf.getTextWidth(displayNameSpaced);
+    }
+    
+    pdf.text(displayNameSpaced, 114, 84, { align: "center" });
 
     pdf.setDrawColor(120, 120, 120);
-    pdf.line(92 + 25, 95, 92 + 25, 101);
-    pdf.line(92 + 21, 98, 92 + 29, 98);
+    pdf.line(114, 94, 114, 104);
+    pdf.line(109, 104, 119, 104);
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9.5);
@@ -684,20 +801,20 @@ export const disegnaModellaSuPDF = async (
       `Height : ${resolvedAltezza} ${altezza !== "—" ? "/ " + outputFtIn(String(altezza)) : ""}`,
       `Bust : ${resolvedSeno} ${seno !== "—" ? "/ " + outputInches(String(seno)) : ""}`,
       `Waist : ${resolvedVita} ${vita !== "—" ? "/ " + outputInches(String(vita)) : ""}`,
-      `Hips : ${resolvedFianchi} ${fianchi !== "—" ? "/ " + outputInches(String(fianchi)) : ""}`,
-      resolvedScarpe !== "—" ? `Shoes : ${resolvedScarpe}` : "",
+      `Hip : ${resolvedFianchi} ${fianchi !== "—" ? "/ " + outputInches(String(fianchi)) : ""}`,
       resolvedCapelli !== "—" ? `${resolvedCapelli} Hair` : "",
       resolvedOcchi !== "—" ? `${resolvedOcchi} Eyes` : ""
     ].filter(Boolean);
 
-    let dyText = 108;
+    let dyText = 111;
     details.forEach(text => {
-      pdf.text(text, 92 + 25, dyText, { align: "center" });
-      dyText += 5.5;
+      pdf.text(text, 114, dyText, { align: "center" });
+      dyText += 6;
     });
 
-    pdf.line(92 + 21, dyText + 2, 92 + 29, dyText + 2);
-    pdf.line(92 + 25, dyText, 92 + 25, dyText + 5);
+    pdf.setDrawColor(120, 120, 120);
+    pdf.line(109, dyText + 2, 119, dyText + 2);
+    pdf.line(114, dyText + 2, 114, dyText + 12);
   } else if (layout === "cinematic-2") {
     // Top image: imageLeft
     // Bottom image: imageCenter
@@ -1293,27 +1410,99 @@ export const disegnaModellaSuPDF = async (
     if (agencyWeb) contactParts.push(`WEB: ${agencyWeb}`);
     const line2 = contactParts.join(" / ").toUpperCase();
 
-    if (agency?.logo) {
-      try {
-        pdf.addImage(agency.logo, "JPEG", 245, 186, 40, 6.5);
-      } catch (e) {
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(10.5);
-        pdf.setTextColor(17, 24, 39);
-        pdf.text("COSMOPOLITAN", 285, 189, { align: "right" });
-      }
-    } else {
+    const drawCosmoTextLogo = (pdf: jsPDF, xEnd: number, yTitle: number) => {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(10.5);
-      pdf.setTextColor(17, 24, 39);
-      pdf.text("COSMOPOLITAN", 285, 189, { align: "right" });
+      
+      const widthCosmo = pdf.getTextWidth("COSMO");
+      const widthPolitan = pdf.getTextWidth("POLITAN");
+      const totalWidth = widthCosmo + widthPolitan;
+      const startX = xEnd - totalWidth;
+
+      // Draw COSMO
+      pdf.setTextColor(mainColorRGB[0], mainColorRGB[1], mainColorRGB[2]);
+      pdf.text("COSMO", startX, yTitle);
+
+      // Draw POLITAN
+      pdf.setTextColor(bordeauxColorRGB[0], bordeauxColorRGB[1], bordeauxColorRGB[2]);
+      pdf.text("POLITAN", startX + widthCosmo, yTitle);
+
+      // Draw Subtitle "modaeventipubblicitàcomunicazione" with characters styled and stretched exactly to totalWidth
+      const subChars = [
+        ...("moda".split("").map(c => ({ char: c, color: bordeauxColorRGB }))),
+        ...("eventi".split("").map(c => ({ char: c, color: mainColorRGB }))),
+        ...("pubblicità".split("").map(c => ({ char: c, color: bordeauxColorRGB }))),
+        ...("comunicazione".split("").map(c => ({ char: c, color: mainColorRGB })))
+      ];
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(3.3); // Micro font size matching HTML look
+      const spacing = totalWidth / (subChars.length - 1);
+      
+      subChars.forEach((item, index) => {
+        pdf.setTextColor(item.color[0], item.color[1], item.color[2]);
+        pdf.text(item.char, startX + index * spacing, yTitle + 2);
+      });
+    };
+
+    const footerLogoSrc = (resolvedDati?.useShortLogoForBottomRight && agency?.logoBreve) ? agency.logoBreve : agency?.logo;
+
+    if (footerLogoSrc) {
+      try {
+        const targetHeightMm = (resolvedDati?.bottomRightLogoHeight || 28) * (25.4 / 96);
+        const aspect = await getBase64ImageAspectRatio(footerLogoSrc);
+        const targetWidthMm = targetHeightMm * aspect;
+        pdf.addImage(footerLogoSrc, "JPEG", 285 - targetWidthMm, 192.5 - targetHeightMm, targetWidthMm, targetHeightMm);
+      } catch (e) {
+        drawCosmoTextLogo(pdf, 285, 189);
+      }
+    } else {
+      drawCosmoTextLogo(pdf, 285, 189);
     }
 
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(6.5);
-    pdf.setTextColor(115, 115, 115);
-    pdf.text(line1, 285, 193.5, { align: "right" });
-    pdf.text(line2, 285, 197, { align: "right" });
+    const drawJustifiedTextRight = (text: string, xEnd: number, y: number, targetWidth: number, fontSize: number, colorRGB: number[], isBold: boolean = false) => {
+      pdf.setFont("helvetica", isBold ? "bold" : "normal");
+      
+      let currentFontSize = fontSize;
+      pdf.setFontSize(currentFontSize);
+      
+      let sumCharWidths = 0;
+      let charWidths: number[] = [];
+      for (let i = 0; i < text.length; i++) {
+        const w = pdf.getTextWidth(text[i]);
+        charWidths.push(w);
+        sumCharWidths += w;
+      }
+      
+      // If the characters take up too much of the target width (or exceed it),
+      // dynamically scale down the font size to ensure clean positive spacing.
+      const maxAllowedWidth = targetWidth * 0.92;
+      if (sumCharWidths > maxAllowedWidth) {
+        currentFontSize = currentFontSize * (maxAllowedWidth / sumCharWidths);
+        pdf.setFontSize(currentFontSize);
+        
+        sumCharWidths = 0;
+        charWidths = [];
+        for (let i = 0; i < text.length; i++) {
+          const w = pdf.getTextWidth(text[i]);
+          charWidths.push(w);
+          sumCharWidths += w;
+        }
+      }
+      
+      const gap = (targetWidth - sumCharWidths) / (text.length - 1);
+      let curX = xEnd - targetWidth;
+      
+      for (let i = 0; i < text.length; i++) {
+        pdf.text(text[i], curX, y);
+        curX += charWidths[i] + gap;
+      }
+    };
+
+    if (!resolvedDati?.hideContactsBlock) {
+      drawJustifiedTextRight(line1, 285, 194.2, 65, 8.0, mainColorRGB, true);
+      drawJustifiedTextRight(line2, 285, 197.6, 65, 5.6, labelColorRGB, false);
+    }
   }
 
   if (layout !== "editorial-6" && layout !== "cinematic-2" && layout !== "campaign-wedding" && layout !== "campaign-3" && layout !== "campaign-seamless" && layout !== "campaign-tvc" && layout !== "campaign-solo" && layout !== "campaign-tvc-4" && layout !== "campaign-brand-6" && layout !== "campaign-5-hybrid") {
@@ -1321,8 +1510,13 @@ export const disegnaModellaSuPDF = async (
     const altezzaBarra = 15;
 
     if (!resolvedDati?.hideSpecsBar) {
-      pdf.setFillColor(3, 7, 18);
-      pdf.rect(15, yBarra, 267, altezzaBarra, "F");
+      if (resolvedDati?.specsBarWhiteBg) {
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(15, yBarra, 267, altezzaBarra, "F");
+      } else {
+        pdf.setFillColor(3, 7, 18);
+        pdf.rect(15, yBarra, 267, altezzaBarra, "F");
+      }
 
       const colonneDati = [
         { t: "ALTEZZA/HEIGHT", v: resolvedAltezza, x: 20 },
@@ -1337,7 +1531,11 @@ export const disegnaModellaSuPDF = async (
       colonneDati.forEach((col, idx) => {
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(5.5);
-        pdf.setTextColor(156, 163, 175);
+        if (resolvedDati?.specsBarWhiteBg) {
+          pdf.setTextColor(100, 116, 139); // slate-500
+        } else {
+          pdf.setTextColor(156, 163, 175); // slate-400
+        }
         pdf.text(col.t, col.x, yBarra + 5);
         
         pdf.setFont("helvetica", "bold");
@@ -1351,13 +1549,21 @@ export const disegnaModellaSuPDF = async (
           pdf.setFontSize(currentFontSize);
         }
         
-        pdf.setTextColor(255, 255, 255);
+        if (resolvedDati?.specsBarWhiteBg) {
+          pdf.setTextColor(3, 7, 18); // very dark slate
+        } else {
+          pdf.setTextColor(255, 255, 255); // white
+        }
         pdf.text(col.v, col.x, yBarra + 11);
       });
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(5.5);
-      pdf.setTextColor(156, 163, 175);
+      if (resolvedDati?.specsBarWhiteBg) {
+        pdf.setTextColor(100, 116, 139);
+      } else {
+        pdf.setTextColor(156, 163, 175);
+      }
       pdf.text("TAGLIA S/I SIZE", 251, yBarra + 5);
       
       pdf.setFont("helvetica", "bold");
@@ -1370,7 +1576,11 @@ export const disegnaModellaSuPDF = async (
         pdf.setFontSize(tagliaFontSize);
       }
       
-      pdf.setTextColor(250, 204, 21);
+      if (resolvedDati?.specsBarWhiteBg) {
+        pdf.setTextColor(217, 119, 6); // amber-600 for better contrast on white
+      } else {
+        pdf.setTextColor(250, 204, 21); // amber-400
+      }
       pdf.text(resolvedTaglia, 251, yBarra + 11);
     } else if (resolvedDati?.customFooterText) {
       if (resolvedDati.customFooterWhiteBg) {
@@ -1394,6 +1604,25 @@ export const disegnaModellaSuPDF = async (
         const cleanCustomText = resolvedDati.customFooterText.toUpperCase();
         pdf.text(cleanCustomText, 148.5, yBarra + 9.5, { align: "center" });
       }
+    }
+  }
+
+  // Draw dynamic brand logo in lower bottom-right corner of PDF if requested and layout is not campaign-5-hybrid
+  if (resolvedDati?.showBottomRightLogo && (agency?.logo || agency?.logoBreve) && layout !== "campaign-5-hybrid") {
+    try {
+      const selectedLogo = (resolvedDati?.useShortLogoForBottomRight && agency.logoBreve) ? agency.logoBreve : (agency.logo || agency.logoBreve);
+      if (selectedLogo) {
+        const aspect = await getBase64ImageAspectRatio(selectedLogo);
+        const logoHeightMm = (resolvedDati.bottomRightLogoHeight || 28) * (25.4 / 96);
+        const logoWidthMm = logoHeightMm * aspect;
+        
+        const logoX = 285 - logoWidthMm;
+        const logoY = 202 - logoHeightMm;
+        
+        pdf.addImage(selectedLogo, "JPEG", logoX, logoY, logoWidthMm, logoHeightMm);
+      }
+    } catch (e) {
+      console.error("Errore nel disegno del logo in basso a destra del PDF:", e);
     }
   }
 };
@@ -1469,6 +1698,20 @@ const elaboraImmagineCoverPerPDF = (url: string, targetWidth: number, targetHeig
     img.onerror = () => resolve(null);
     img.src = url;
     setTimeout(() => resolve(null), 3000);
+  });
+};
+
+export const getBase64ImageAspectRatio = (url: string): Promise<number> => {
+  return new Promise((resolve) => {
+    if (!url) { resolve(5.5); return; }
+    const img = new Image();
+    img.onload = () => {
+      resolve(img.width / img.height);
+    };
+    img.onerror = () => {
+      resolve(5.5);
+    };
+    img.src = url;
   });
 };
 

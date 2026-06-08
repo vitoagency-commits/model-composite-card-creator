@@ -63,6 +63,7 @@ export interface ModelData {
   offsetY10?: number;
   gender?: "model woman" | "model man" | "child model woman" | "child model man";
   hideSpecsBar?: boolean;
+  specsBarWhiteBg?: boolean;
   hideHeaderName?: boolean;
   hideHeaderIndex?: boolean;
   hideSocialIcons?: boolean;
@@ -75,6 +76,13 @@ export interface ModelData {
   customFooterWhiteBg?: boolean;
   showWatermark?: boolean;
   watermarkText?: string;
+  showBottomRightLogo?: boolean;
+  bottomRightLogoHeight?: number;
+  useShortLogoForBottomRight?: boolean;
+  hideContactsBlock?: boolean;
+  topCenterText?: string;
+  topCenterLogo?: string; // base64 or URL
+  topCenterLogoHeight?: number; // custom height in mm (default approx 10)
 }
 
 export interface AgencyInfo {
@@ -86,6 +94,7 @@ export interface AgencyInfo {
   email: string;
   portfolioDate?: string;
   logo?: string;
+  logoBreve?: string;
   instagram?: string;
   whatsapp?: string;
   facebook?: string;
