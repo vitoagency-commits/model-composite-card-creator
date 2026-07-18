@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, ChangeEvent } from "react";
 import { ModelData, AgencyInfo } from "./types";
 import { SAMPLE_MODELS, DEFAULT_AGENCY } from "./sampleData";
 import { ModelCard } from "./components/ModelCard";
@@ -1664,6 +1664,42 @@ export const convertPdfToImage = async (file: File): Promise<string> => {
   return canvas.toDataURL("image/jpeg", 0.95);
 };
 
+export const flattenPdfDocument = async (pdf: jsPDF): Promise<jsPDF> => {
+  const pdfjsLib = await loadPdfJs();
+  const pdfArrayBuffer = pdf.output("arraybuffer") as ArrayBuffer;
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfArrayBuffer) });
+  const pdfDoc = await loadingTask.promise;
+  
+  const flatPdf = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: "a4"
+  });
+
+  for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+    const page = await pdfDoc.getPage(pageNum);
+    
+    // Scale 3.5 provides high quality so text remains sharp
+    const scale = 3.5;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Can't obtain canvas context 2D");
+    
+    await page.render({ canvasContext: context, viewport }).promise;
+    const imgData = canvas.toDataURL("image/jpeg", 0.95);
+    
+    if (pageNum > 1) {
+      flatPdf.addPage([297, 210], "landscape");
+    }
+    flatPdf.addImage(imgData, "JPEG", 0, 0, 297, 210);
+  }
+  
+  return flatPdf;
+};
+
 const elaboraImmagineCoverPerPDF = (url: string, targetWidth: number, targetHeight: number): Promise<string | null> => {
   return new Promise((resolve) => {
     if (!url) { resolve(null); return; }
@@ -1733,6 +1769,7 @@ export const gestisciDownloadCatalogo = async (
     backCoverFooterText?: string;
     fontFamily?: string;
     themeColor?: "silver" | "charcoal" | "beige" | "gold" | "white";
+    flattenPdf?: boolean;
   }
 ) => {
   try {
@@ -1940,7 +1977,13 @@ export const gestisciDownloadCatalogo = async (
       pdf.text(`${footerText.toUpperCase()} ${new Date().getFullYear()}`, 148.5, 185, { align: "center" });
     }
 
-    pdf.save(`Catalogo_Modelle_Cosmopolitan.pdf`);
+    let finalPdf = pdf;
+    if (opzioni?.flattenPdf) {
+      if (typeof setIsGenerating === "function") setIsGenerating(true);
+      finalPdf = await flattenPdfDocument(pdf);
+    }
+
+    finalPdf.save(`Catalogo_Modelle_Cosmopolitan.pdf`);
 
   } catch (errore) {
     console.error("Errore nella generazione del catalogo:", errore);
@@ -2119,6 +2162,7 @@ export default function App() {
   // Cover page & back cover configuration
   const [includeCover, setIncludeCover] = useState<boolean>(false);
   const [includeBackCover, setIncludeBackCover] = useState<boolean>(false);
+  const [flattenPdfOption, setFlattenPdfOption] = useState<boolean>(false);
   const [coverTitleText, setCoverTitleText] = useState<string>("COLLEZIONE MODELLI");
   const [coverSubtitleText, setCoverSubtitleText] = useState<string>("PORTFOLIO COMPOSIT UFFICIALE");
   const [coverDescText, setCoverDescText] = useState<string>("Raccolta dei composit fotografici e dati tecnici dei modelli professionisti per la stagione corrente.");
@@ -2145,6 +2189,59 @@ export default function App() {
   const [welcomeImageFilter, setWelcomeImageFilter] = useState<"normal" | "noir" | "golden">("normal");
   const [welcomeImageZoom, setWelcomeImageZoom] = useState<number>(1.05);
   const [dontShowAgainWelcome, setDontShowAgainWelcome] = useState<boolean>(false);
+  const [welcomeImage, setWelcomeImage] = useState<string>(() => {
+    try {
+      return localStorage.getItem("cosmo_welcome_image") || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=1200";
+    } catch (e) {
+      return "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=1200";
+    }
+  });
+
+  const handleWelcomeImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setWelcomeImage(base64);
+      try {
+        localStorage.setItem("cosmo_welcome_image", base64);
+        showNotification("Immagine di benvenuto aggiornata con successo!", "success");
+      } catch (err) {
+        console.error(err);
+        showNotification("L'immagine è molto grande, verrà mostrata ma potrebbe non salvarsi permanentemente.", "info");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleWelcomeImageUrlPrompt = () => {
+    const url = prompt("Inserisci l'URL dell'immagine da usare come benvenuto:", welcomeImage);
+    if (url !== null) {
+      const cleanUrl = url.trim();
+      if (cleanUrl) {
+        setWelcomeImage(cleanUrl);
+        try {
+          localStorage.setItem("cosmo_welcome_image", cleanUrl);
+          showNotification("Immagine di benvenuto aggiornata con l'URL fornito!", "success");
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+  };
+
+  const handleRestoreWelcomeImage = () => {
+    const original = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=1200";
+    setWelcomeImage(original);
+    try {
+      localStorage.removeItem("cosmo_welcome_image");
+      showNotification("Immagine di benvenuto ripristinata all'originale!", "info");
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // Automatically select all profiles when loaded
   useEffect(() => {
@@ -2982,8 +3079,14 @@ export default function App() {
 
       await disegnaModellaSuPDF(pdf, resolvedDati, 0, 1, socialScelti, agency, themeColor);
 
+      let finalPdf = pdf;
+      if (flattenPdfOption) {
+        showNotification("Appiattimento PDF in corso (Sola Lettura)...", "info");
+        finalPdf = await flattenPdfDocument(pdf);
+      }
+
       const nomeFattibile = (resolvedDati?.nome || resolvedDati?.name || "MARIA_V").replace(/\s+/g, "_");
-      pdf.save(`Scheda_Composit_${nomeFattibile}.pdf`);
+      finalPdf.save(`Scheda_Composit_${nomeFattibile}.pdf`);
       showNotification("PDF salvato con successo!", "success");
 
     } catch (errore) {
@@ -3054,7 +3157,8 @@ export default function App() {
           backCoverCitiesText,
           backCoverFooterText,
           fontFamily,
-          themeColor
+          themeColor,
+          flattenPdf: flattenPdfOption
         }
       );
 
@@ -3096,251 +3200,92 @@ export default function App() {
         <div className="absolute bottom-[-15%] right-[-10%] w-[60%] h-[60%] rounded-full bg-slate-900/30 blur-[150px] pointer-events-none"></div>
         
         {/* Upper Brand Info header */}
-        <header className="max-w-6xl w-full mx-auto flex flex-col sm:flex-row items-center justify-between border-b border-neutral-800/40 pb-5 mb-8 md:mb-12 gap-4">
+        <header className="max-w-5xl w-full mx-auto flex flex-col sm:flex-row items-center justify-between border-b border-neutral-900/40 pb-5 mb-8 md:mb-16 gap-4">
           <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping"></span>
-            <span className="text-xs font-bold tracking-[0.3em] text-indigo-400 uppercase font-mono">FASHION STUDIO LIVE</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></span>
+            <span className="text-[10px] font-bold tracking-[0.4em] text-indigo-400 uppercase font-mono">FASHION STUDIO LIVE</span>
           </div>
-          <div className="text-xs tracking-[0.4em] text-neutral-400 font-medium font-serif uppercase">
+          <div className="text-[10px] tracking-[0.4em] text-neutral-400 font-medium font-serif uppercase">
             MILANO • PARIGI • NEW YORK • LONDRA
           </div>
         </header>
 
-        {/* Main interactive showcase grid */}
-        <main className="max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center flex-1">
+        {/* Main clean showcase grid */}
+        <main className="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-16 items-center flex-1">
           
-          {/* Left Block: Interactive image of model */}
-          <div className="lg:col-span-6 flex flex-col items-center">
-            
-            {/* Interactive Image Frame */}
-            <div className="relative group w-full max-w-[370px] aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-800/80 shadow-2xl transition-all duration-500 hover:border-indigo-500/30">
-              
-              {/* Actual Image with dynamic filters and zoom controls */}
+          {/* Left Block: Beautiful Portrait Image of Model matching the user's attachment */}
+          <div className="md:col-span-6 flex flex-col items-center gap-3">
+            <div className="relative w-full max-w-[360px] aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-900 shadow-2xl border border-neutral-800/40 group transition-all duration-500 hover:border-indigo-500/30">
               <img
-                src="https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&q=80&w=1200"
-                alt="High Fashion Model Cosmopolitan"
+                src={welcomeImage}
+                alt="Welcome Model Cosmopolitan"
                 referrerPolicy="no-referrer"
-                style={{
-                  transform: `scale(${welcomeImageZoom})`,
-                  filter: welcomeImageFilter === "noir" 
-                    ? "grayscale(1) contrast(1.15) brightness(0.95)" 
-                    : welcomeImageFilter === "golden"
-                      ? "sepia(0.65) hue-rotate(330deg) brightness(0.95) contrast(1.05)"
-                      : "none"
-                }}
-                className="w-full h-full object-cover transition-all duration-700 ease-out origin-center"
+                className="w-full h-full object-cover origin-center transition-transform duration-500 group-hover:scale-105"
               />
-
-              {/* Ambient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-transparent to-neutral-950/40 pointer-events-none"></div>
-
-              {/* Luminous interactive pulses (Hotspots) */}
+              {/* Minimal vignette/ambient overlay to stay consistent */}
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/70 via-transparent to-transparent pointer-events-none"></div>
               
-              {/* Viso / Portrait Focal Point */}
-              <button
-                type="button"
-                onClick={() => setActiveHotspot("viso")}
-                className="absolute top-[22%] left-[45%] -translate-x-1/2 -translate-y-1/2 group/pin z-20 flex items-center justify-center cursor-pointer"
-                title="Punto Focale Primo Piano"
-              >
-                <span className={`absolute inline-flex h-7 w-7 rounded-full opacity-75 animate-ping ${activeHotspot === "viso" ? "bg-indigo-400" : "bg-white/40"}`}></span>
-                <span className={`relative rounded-full h-6 w-6 flex items-center justify-center border text-[10px] font-bold transition-all ${activeHotspot === "viso" ? "bg-indigo-500 text-white border-indigo-300 scale-110 shadow-md" : "bg-white/80 text-black border-white"}`}>
-                  1
+              {/* Desktop Hover / Mobile overlay with edit options */}
+              <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4 text-center gap-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 font-mono">
+                  Personalizza Schermata
                 </span>
-              </button>
-
-              {/* Abbigliamento / Sartorial Layout Point */}
-              <button
-                type="button"
-                onClick={() => setActiveHotspot("abiti")}
-                className="absolute top-[52%] left-[38%] -translate-x-1/2 -translate-y-1/2 group/pin z-20 flex items-center justify-center cursor-pointer"
-                title="Dettaglio Composizione Corporate"
-              >
-                <span className={`absolute inline-flex h-7 w-7 rounded-full opacity-75 animate-ping ${activeHotspot === "abiti" ? "bg-indigo-400" : "bg-white/40"}`}></span>
-                <span className={`relative rounded-full h-6 w-6 flex items-center justify-center border text-[10px] font-bold transition-all ${activeHotspot === "abiti" ? "bg-indigo-500 text-white border-indigo-300 scale-110 shadow-md" : "bg-white/80 text-black border-white"}`}>
-                  2
-                </span>
-              </button>
-
-              {/* Fondale / Background Canvas Setting Point */}
-              <button
-                type="button"
-                onClick={() => setActiveHotspot("fondale")}
-                className="absolute top-[35%] left-[82%] -translate-x-1/2 -translate-y-1/2 group/pin z-20 flex items-center justify-center cursor-pointer"
-                title="Impostazioni Fondale Studio"
-              >
-                <span className={`absolute inline-flex h-7 w-7 rounded-full opacity-75 animate-ping ${activeHotspot === "fondale" ? "bg-indigo-400" : "bg-white/40"}`}></span>
-                <span className={`relative rounded-full h-6 w-6 flex items-center justify-center border text-[10px] font-bold transition-all ${activeHotspot === "fondale" ? "bg-indigo-500 text-white border-indigo-300 scale-110 shadow-md" : "bg-white/80 text-black border-white"}`}>
-                  3
-                </span>
-              </button>
-
-              {/* Sleek watermarked HUD specs */}
-              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between select-none">
-                <div>
-                  <div className="text-[10px] text-indigo-400 font-mono tracking-wider uppercase">Editorial Card</div>
-                  <div className="text-sm font-bold tracking-tight text-white font-serif">A4 Layout Model Test</div>
+                <p className="text-xs text-neutral-300 font-medium max-w-[200px]">
+                  Puoi caricare una foto dal computer o inserire un link per cambiare questa immagine di benvenuto
+                </p>
+                <div className="flex flex-col gap-2 w-full max-w-[180px]">
+                  <label className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] py-2 px-3 rounded-lg cursor-pointer transition-colors uppercase tracking-wider flex items-center justify-center gap-1 shadow-md">
+                    <FileUp size={11} />
+                    <span>Sfoglia Foto...</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleWelcomeImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleWelcomeImageUrlPrompt}
+                    className="bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-[10px] py-2 px-3 rounded-lg transition-colors uppercase tracking-wider border border-neutral-700 flex items-center justify-center gap-1"
+                  >
+                    <ImageIcon size={11} className="text-neutral-400" />
+                    <span>Usa Link URL</span>
+                  </button>
+                  {welcomeImage !== "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=1200" && (
+                    <button
+                      type="button"
+                      onClick={handleRestoreWelcomeImage}
+                      className="text-[9px] text-red-400 hover:text-red-300 underline mt-1 block tracking-wider uppercase cursor-pointer"
+                    >
+                      Ripristina Originale
+                    </button>
+                  )}
                 </div>
-                <div className="text-right font-mono text-[9px] text-neutral-400 bg-neutral-900/80 backdrop-blur-xs py-0.5 px-2 rounded-md border border-neutral-800">
-                  REF #509631
-                </div>
-              </div>
-
-              {/* Interactive Hover Tips */}
-              <div className="absolute top-4 left-4 right-4 flex justify-between select-none pointer-events-none">
-                <span className="text-[9px] font-mono tracking-widest text-white/50 bg-black/40 backdrop-blur-xs py-1 px-2.5 rounded-full uppercase font-medium">
-                  preview interattivo
-                </span>
-                <span className="text-[9px] font-mono tracking-widest text-indigo-300 bg-indigo-950/50 backdrop-blur-xs py-1 px-2.5 rounded-full uppercase font-medium">
-                  punta i numeri
-                </span>
               </div>
             </div>
-
-            {/* Interactive control dashboard right under the image */}
-            <div className="w-full max-w-[370px] mt-4 space-y-4">
-              
-              {/* Dynamic hotspot explainer panel */}
-              <div className="bg-neutral-900/80 backdrop-blur-sm p-4 rounded-xl border border-neutral-800/80 min-h-[96px] flex flex-col justify-center">
-                {activeHotspot === "viso" && (
-                  <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 font-mono mb-1 block">
-                      1. PORTRAIT FOCAL (PRIMO PIANO HD)
-                    </span>
-                    <p className="text-xs text-neutral-300 leading-relaxed font-sans">
-                      Ottimizzato per valorizzare i lineamenti forti nei primi piani e schede headshot. Risalta l'espressività della modella/o e la simmetria del volto.
-                    </p>
-                  </div>
-                )}
-                {activeHotspot === "abiti" && (
-                  <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 font-mono mb-1 block">
-                      2. GEOMETRIC BALANCE (COMPOSIT AD ALTO IMPATTO)
-                    </span>
-                    <p className="text-xs text-neutral-300 leading-relaxed font-sans">
-                      La posa ideale per il layout multi-foto (a 2, 3 o 4 immagini). Consente di mostrare outfit differenti combinando pose a mezza figura e scatti total-body.
-                    </p>
-                  </div>
-                )}
-                {activeHotspot === "fondale" && (
-                  <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 font-mono mb-1 block">
-                      3. STUDIO CANVAS LIGHTING (FONDALI HI-CLASS)
-                    </span>
-                    <p className="text-xs text-neutral-300 leading-relaxed font-sans">
-                      Neutralizzazione dello sfondo e tonalità calibrate (Silver, Charcoal, Beige, Gold) per dare uniformità cromatica al portfolio cartaceo e digitale.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Filters selector and Zoom slider */}
-              <div className="grid grid-cols-2 gap-3 items-center">
-                {/* Real-time filters */}
-                <div className="space-y-1">
-                  <label className="text-[9px] uppercase tracking-wider text-neutral-400 font-mono">Filtro Foto</label>
-                  <div className="flex bg-neutral-900 rounded-lg p-0.5 border border-neutral-800">
-                    <button
-                      type="button"
-                      onClick={() => setWelcomeImageFilter("normal")}
-                      className={`flex-1 text-[9px] font-bold py-1 rounded transition-all cursor-pointer ${welcomeImageFilter === "normal" ? "bg-indigo-600 text-white" : "text-neutral-400 hover:text-white"}`}
-                    >
-                      Colori
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setWelcomeImageFilter("noir")}
-                      className={`flex-1 text-[9px] font-bold py-1 rounded transition-all cursor-pointer ${welcomeImageFilter === "noir" ? "bg-indigo-600 text-white" : "text-neutral-400 hover:text-white"}`}
-                    >
-                      B&N
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setWelcomeImageFilter("golden")}
-                      className={`flex-1 text-[9px] font-bold py-1 rounded transition-all cursor-pointer ${welcomeImageFilter === "golden" ? "bg-indigo-600 text-white" : "text-neutral-400 hover:text-white"}`}
-                    >
-                      Caldo
-                    </button>
-                  </div>
-                </div>
-
-                {/* Interactive Zoom Slider */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[9px] uppercase tracking-wider text-neutral-400 font-mono">Zoom Anteprima</label>
-                    <span className="text-[9px] text-indigo-400 font-mono font-medium">{Math.round(welcomeImageZoom * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1.0"
-                    max="1.3"
-                    step="0.05"
-                    value={welcomeImageZoom}
-                    onChange={(e) => setWelcomeImageZoom(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                  />
-                </div>
-              </div>
-
-            </div>
+            
+            {/* Soft, small guidance line under the image */}
+            <p className="text-[10px] text-neutral-500 font-mono italic">
+              Passa il mouse o tocca la foto per sostituirla
+            </p>
           </div>
 
-          {/* Right Block: Studio information & Entry Portal */}
-          <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-950/50 border border-indigo-800/40 rounded-full text-[10px] font-bold text-indigo-300 font-mono uppercase tracking-wider mb-4">
-                <Sparkles size={11} className="inline animate-spin-slow text-indigo-400" /> Composit Landscape Studio v2.4
-              </div>
-              <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white uppercase font-sans leading-tight">
-                Estendi il Portfolio <span className="text-indigo-400">Model Composit</span>
+          {/* Right Block: Minimalist Entry Portal */}
+          <div className="md:col-span-6 flex flex-col justify-center text-center md:text-left space-y-8">
+            <div className="space-y-4">
+              <span className="text-[10px] font-bold tracking-[0.3em] text-indigo-400 uppercase font-mono">COSMOPOLITAN AGENCY</span>
+              <h2 className="text-3xl md:text-4xl font-extrabold tracking-wider text-white uppercase font-sans leading-tight">
+                ESTENDI IL PORTFOLIO MODEL COMPOSIT
               </h2>
-              <div className="h-1 w-16 bg-gradient-to-r from-indigo-500 to-slate-500 my-4 mx-auto lg:mx-0 rounded"></div>
-              <p className="text-sm md:text-base text-neutral-300 leading-relaxed font-serif max-w-lg mx-auto lg:mx-0">
-                Benvenuto nella piattaforma professionale di impaginazione e creazione dei Composit per Modelle e Modelli di Cosmopolitan Agency. Ottimizzato per la stampa in formato internazionale A4 Orizzontale.
+              <div className="h-0.5 w-12 bg-indigo-500 my-4 mx-auto md:mx-0"></div>
+              <p className="text-xs text-neutral-400 font-serif leading-relaxed max-w-sm mx-auto md:mx-0">
+                Piattaforma professionale di impaginazione e creazione dei Model Composit in formato A4 Orizzontale.
               </p>
             </div>
 
-            {/* Practical instructions highlighted of how to extend model's portfolio */}
-            <div className="bg-neutral-900/60 rounded-xl p-5 border border-neutral-800/50 space-y-4 text-left max-w-xl mx-auto lg:mx-0">
-              <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-400 font-mono block border-b border-neutral-800/80 pb-2">
-                Guida Studio Fashion: come estendere un Portfolio?
-              </span>
-              
-              <ul className="space-y-3.5 text-xs text-neutral-300">
-                <li className="flex items-start gap-2.5">
-                  <div className="bg-indigo-950 text-indigo-200 p-1.5 rounded-lg border border-indigo-900/50 mt-0.5 shrink-0">
-                    <Grid size={13} />
-                  </div>
-                  <div>
-                    <strong className="text-neutral-100 font-medium block">1. Scegli Layout e Foto diverse</strong>
-                    <p className="text-[11px] text-neutral-400 mt-0.5">La stessa modella può avere differenti schede. Usa il layout a 1 foto per il primo piano ed un altro a 3 o 4 foto per gli scatti total-body.</p>
-                  </div>
-                </li>
-                
-                <li className="flex items-start gap-2.5">
-                  <div className="bg-indigo-950 text-indigo-200 p-1.5 rounded-lg border border-indigo-900/50 mt-0.5 shrink-0">
-                    <Layers size={13} />
-                  </div>
-                  <div>
-                    <strong className="text-neutral-100 font-medium block">2. Duplica in un click</strong>
-                    <p className="text-[11px] text-neutral-400 mt-0.5">Clicca su "Salvati" dell'editor, quindi clicca su <strong className="text-indigo-400">"Duplica e Crea Copia"</strong>. Verrà creata una copia indipendente (es: "Valeria Bis") in cui caricare immagini alternative lasciando i dati immutati.</p>
-                  </div>
-                </li>
-
-                <li className="flex items-start gap-2.5">
-                  <div className="bg-indigo-950 text-indigo-200 p-1.5 rounded-lg border border-indigo-900/50 mt-0.5 shrink-0">
-                    <Download size={13} />
-                  </div>
-                  <div>
-                    <strong className="text-neutral-100 font-medium block">3. Crea Cataloghi di Gruppo</strong>
-                    <p className="text-[11px] text-neutral-400 mt-0.5">Raccogli e seleziona le diverse schede duplicate dallo storico in basso. Clicca su "Esporta Catalogo PDF" per generare un unico Book composit pronto da stampare.</p>
-                  </div>
-                </li>
-              </ul>
-            </div>
-
-            {/* Launch Call To Actions */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-2">
+            {/* Entry Action Button */}
+            <div className="flex flex-col items-center md:items-start gap-4">
               <button
                 type="button"
                 onClick={() => {
@@ -3351,20 +3296,20 @@ export default function App() {
                     } catch (e) {}
                   }
                 }}
-                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-505 text-white font-bold text-xs py-3.5 px-6 rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-950/50 hover:shadow-indigo-900/30 transition-all cursor-pointer select-none"
+                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs tracking-widest py-4 px-8 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-indigo-950/50 hover:shadow-indigo-900/30 hover:scale-[1.02] transition-all duration-300 cursor-pointer select-none uppercase"
               >
                 <span>ENTRA NELLO STUDIO FASHION</span>
-                <ChevronRight size={14} />
+                <ChevronRight size={14} className="text-white" />
               </button>
 
-              <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer py-1 select-none">
+              <label className="flex items-center gap-2 text-[11px] text-neutral-500 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={dontShowAgainWelcome}
                   onChange={(e) => setDontShowAgainWelcome(e.target.checked)}
-                  className="rounded border-neutral-750 bg-neutral-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer h-4 w-4"
+                  className="rounded border-neutral-800 bg-neutral-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5"
                 />
-                <span>Non mostrare più all'avvio</span>
+                <span>Non mostrare questa schermata all'avvio</span>
               </label>
             </div>
 
@@ -3372,8 +3317,8 @@ export default function App() {
         </main>
 
         {/* Footer with Cosmopolitan branding precisely requested */}
-        <footer className="w-full text-center border-t border-neutral-900/80 pt-6 mt-8 md:mt-12 select-none">
-          <div className="text-[11px] font-mono tracking-[0.25em] text-neutral-500 uppercase">
+        <footer className="w-full text-center border-t border-neutral-900/60 pt-6 mt-8 md:mt-16 select-none">
+          <div className="text-[10px] font-mono tracking-[0.3em] text-neutral-500 uppercase">
             created by cosmopolitanagency
           </div>
         </footer>
@@ -3527,6 +3472,25 @@ export default function App() {
                   <Printer size={13} />
                   Stampa
                 </button>
+              </div>
+            </div>
+
+            {/* Opzione di Sicurezza: PDF Sola Lettura (Appiattito) */}
+            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-3 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-300">
+              <label className="flex items-start sm:items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={flattenPdfOption}
+                  onChange={(e) => setFlattenPdfOption(e.target.checked)}
+                  className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer accent-indigo-600 mt-0.5 sm:mt-0"
+                />
+                <div className="leading-tight">
+                  <span className="text-[11px] font-bold text-slate-700 block">PDF Sola Lettura (Appiattito)</span>
+                  <span className="text-[10px] text-slate-400">Rende il file non modificabile distruggendo la struttura vettoriale del testo e delle foto</span>
+                </div>
+              </label>
+              <div className="inline-flex self-start sm:self-auto text-[9px] font-mono bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded uppercase border border-indigo-100 shrink-0">
+                Approccio A Sicuro
               </div>
             </div>
 
