@@ -256,23 +256,23 @@ export const disegnaModellaSuPDF = async (
   const getDimensioniSlot = (slotName: string): { w: number, h: number } => {
     const l = layout || "classic";
     if (l === "classic") {
-      return { w: 87, h: 125 };
+      return { w: 84, h: 114 };
     }
     if (l === "duo") {
-      return { w: 132, h: 125 };
+      return { w: 129, h: 114 };
     }
     if (l === "asymmetric-left") {
-      if (slotName === "Left") return { w: 132, h: 125 };
-      return { w: 132, h: 55 };
+      if (slotName === "Left") return { w: 131, h: 114 };
+      return { w: 131, h: 54.5 };
     }
     if (l === "solo") {
       return { w: 269, h: 125 };
     }
     if (l === "grid-4") {
-      return { w: 132, h: 55 };
+      return { w: 131, h: 54.5 };
     }
     if (l === "grid-6") {
-      return { w: 87, h: 55 };
+      return { w: 84, h: 54.5 };
     }
     if (l === "editorial-6") {
       if (slotName === "Left") return { w: 80, h: 135 };
@@ -289,7 +289,7 @@ export const disegnaModellaSuPDF = async (
       return { w: 131, h: 115 };
     }
     if (l === "campaign-2-portrait") {
-      return { w: 125, h: 140 };
+      return { w: 100, h: 112 };
     }
     if (l === "campaign-wedding") {
       if (slotName === "Left") return { w: 131, h: 115 };
@@ -319,7 +319,7 @@ export const disegnaModellaSuPDF = async (
     if (l === "campaign-solo") {
       return { w: 150, h: 135 };
     }
-    return { w: 87, h: 125 };
+    return { w: 84, h: 114 };
   };
 
   const promsElaborate = [

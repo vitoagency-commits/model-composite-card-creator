@@ -25,33 +25,6 @@ interface CardImageProps {
 
 const CardImage: React.FC<CardImageProps> = ({ src, alt, zoom, offsetX, offsetY }) => {
   const { showWatermark, watermarkText } = useContext(WatermarkContext);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 });
-  const [aspectRatio, setAspectRatio] = React.useState<number | null>(null);
-
-  React.useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        setDimensions({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
-      }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  React.useEffect(() => {
-    if (!src) return;
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      setAspectRatio(img.naturalWidth / img.naturalHeight);
-    };
-    img.src = src;
-  }, [src]);
 
   const activeZoom = (zoom !== undefined && !isNaN(zoom)) ? zoom : 100;
   const activeOffsetX = (offsetX !== undefined && !isNaN(offsetX)) ? offsetX : 50;
@@ -60,55 +33,33 @@ const CardImage: React.FC<CardImageProps> = ({ src, alt, zoom, offsetX, offsetY 
   const scale = activeZoom / 100;
   const isContain = activeZoom < 100;
 
-  let bgSizeStyle = "cover";
-  let bgPositionStyle = `${activeOffsetX}% ${activeOffsetY}%`;
-
-  if (dimensions.width > 0 && dimensions.height > 0 && aspectRatio !== null) {
-    const containerRatio = dimensions.width / dimensions.height;
-    let wImg = 0;
-    let hImg = 0;
-
-    if (!isContain) {
-      if (aspectRatio > containerRatio) {
-        hImg = dimensions.height * scale;
-        wImg = hImg * aspectRatio;
-      } else {
-        wImg = dimensions.width * scale;
-        hImg = wImg / aspectRatio;
-      }
-    } else {
-      if (aspectRatio > containerRatio) {
-        wImg = dimensions.width * scale;
-        hImg = wImg / aspectRatio;
-      } else {
-        hImg = dimensions.height * scale;
-        wImg = hImg * aspectRatio;
-      }
-    }
-
-    bgSizeStyle = `${wImg}px ${hImg}px`;
-  }
-
-  const escapedSrc = src ? src.replace(/"/g, '\\"') : "";
+  const getCrossOrigin = (url: string | undefined) => {
+    if (!url) return undefined;
+    if (url.startsWith("data:") || url.startsWith("blob:")) return undefined;
+    return "anonymous";
+  };
 
   return (
-    <div className="absolute inset-0 w-full h-full">
-      <div
-        ref={containerRef}
-        role="img"
-        aria-label={alt}
-        className="absolute inset-0 select-none bg-no-repeat w-full h-full bg-center"
-        style={{
-          backgroundImage: src ? `url("${escapedSrc}")` : undefined,
-          backgroundSize: bgSizeStyle,
-          backgroundPosition: bgPositionStyle,
-          transition: "background-size 0.05s ease-out, background-position 0.05s ease-out",
-        }}
-      />
-      {showWatermark && (
+    <div className="absolute inset-0 w-full h-full overflow-hidden select-none bg-slate-100 flex items-center justify-center">
+      {src && (
+        <img
+          src={src}
+          alt={alt}
+          crossOrigin={getCrossOrigin(src)}
+          referrerPolicy="no-referrer"
+          className="w-full h-full select-none pointer-events-none transition-transform duration-100 ease-out"
+          style={{
+            objectFit: isContain ? "contain" : "cover",
+            objectPosition: `${activeOffsetX}% ${activeOffsetY}%`,
+            transform: `scale(${scale})`,
+            transformOrigin: "center center",
+          }}
+        />
+      )}
+      {showWatermark && src && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-20 overflow-hidden">
           <div className="transform -rotate-[32deg] whitespace-nowrap select-none pointer-events-none text-white/20 font-black text-xs sm:text-sm md:text-[20px] tracking-[0.25em] uppercase px-4 py-1 border border-white/10 rounded-sm bg-black/5 backdrop-blur-[0.5px] shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
-            {watermarkText}
+            {watermarkText || "COSMOPOLITAN"}
           </div>
         </div>
       )}
