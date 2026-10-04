@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef, ChangeEvent } from "react";
-import { ModelData, AgencyInfo } from "./types";
+import { ModelData, AgencyInfo, BatchRenameOptions, ConflictResolution, CardImportTarget, FontFamilyType } from "./types";
 import { SAMPLE_MODELS, DEFAULT_AGENCY } from "./sampleData";
 import { ModelCard } from "./components/ModelCard";
 import { ModelForm } from "./components/ModelForm";
+import { ImportCardModal } from "./components/ImportCardModal";
+import { ShareModal } from "./components/ShareModal";
+import { LookbookModal } from "./components/LookbookModal";
+import { GridOverlay, GridMode } from "./components/GridOverlay";
+import { getFilterCss } from "./filters";
 import { 
   collection, 
   doc, 
@@ -33,7 +38,14 @@ import {
   X,
   FileUp,
   Instagram,
-  ExternalLink
+  ExternalLink,
+  Cloud,
+  Tag,
+  FolderInput,
+  Share2,
+  Sliders,
+  Save,
+  BookOpen
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -76,6 +88,43 @@ const caricaIconaSvg = (svgMarkup: string): Promise<string> => {
   });
 };
 
+// Helper per applicare un watermark testuale personalizzato (opacità e dimensione configurabili) su una pagina PDF
+export const applicaWatermarkSuPaginaPDF = (
+  pdf: any,
+  options?: {
+    enabled?: boolean;
+    text?: string;
+    opacity?: number;
+    fontSize?: number;
+  }
+) => {
+  if (!options?.enabled || !options.text || !options.text.trim()) return;
+
+  const text = options.text.trim().toUpperCase();
+  const opacity = Math.min(Math.max(options.opacity ?? 0.15, 0.02), 0.95);
+  const fontSize = Math.min(Math.max(options.fontSize ?? 54, 14), 140);
+
+  try {
+    pdf.saveGraphicsState();
+    if (typeof (pdf as any).GState === "function") {
+      const gs = new (pdf as any).GState({ opacity });
+      pdf.setGState(gs);
+    }
+    pdf.setTextColor(100, 116, 139); // Slate-500 neutral gray
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(fontSize);
+    
+    // Draw centered diagonally on A4 landscape (297 x 210 mm)
+    pdf.text(text, 148.5, 105, {
+      align: "center",
+      angle: -35,
+    });
+    pdf.restoreGraphicsState();
+  } catch (err) {
+    console.error("Errore disegno watermark:", err);
+  }
+};
+
 export const disegnaModellaSuPDF = async (
   pdf: jsPDF,
   datiModella: any,
@@ -83,10 +132,20 @@ export const disegnaModellaSuPDF = async (
   totalPagine: number,
   socialScelti: { url: string; base64: string }[],
   agency: any,
-  globalThemeColor?: "silver" | "charcoal" | "beige" | "gold" | "white"
+  globalThemeColor?: "silver" | "charcoal" | "beige" | "gold" | "white",
+  globalFontFamily?: FontFamilyType | string,
+  watermarkOptions?: {
+    enabled?: boolean;
+    text?: string;
+    opacity?: number;
+    fontSize?: number;
+  }
 ) => {
   const hasExternalData = datiModella && typeof datiModella === "object";
   const resolvedDati = hasExternalData ? datiModella : null;
+
+  const isSerifFont = globalFontFamily === "serif" || globalFontFamily === "cormorant";
+  const primaryPdfFont = isSerifFont ? "times" : "helvetica";
 
   const nomeModella = (resolvedDati?.nome || resolvedDati?.name || "MARIA V.").toUpperCase();
   const layout = resolvedDati?.layout || "classic";
@@ -138,9 +197,9 @@ export const disegnaModellaSuPDF = async (
   const occhi = resolvedDati?.occhi || resolvedDati?.eyes || "—";
   const capelli = resolvedDati?.capelli || resolvedDati?.hair || "—";
 
-  const upperSize = resolvedDati?.sizeUpper ? `${resolvedDati.sizeUpper}` : "—";
-  const lowerSize = resolvedDati?.sizeLower ? `${resolvedDati.sizeLower}` : "—";
-  const tagliaDefault = upperSize !== "—" && lowerSize !== "—" ? `${upperSize} / ${lowerSize}` : "—";
+  const upperSize = resolvedDati?.sizeUpper ? `${resolvedDati.sizeUpper}`.trim() : "";
+  const lowerSize = resolvedDati?.sizeLower ? `${resolvedDati.sizeLower}`.trim() : "";
+  const tagliaDefault = [upperSize, lowerSize].filter(Boolean).join(" / ") || "—";
   const taglia = resolvedDati?.taglia || tagliaDefault;
 
   const formatCm = (val: any) => {
@@ -165,91 +224,117 @@ export const disegnaModellaSuPDF = async (
     targetHeight: number,
     zoom: number | undefined,
     offsetX: number | undefined,
-    offsetY: number | undefined
+    offsetY: number | undefined,
+    filterCss?: string | undefined
   ): Promise<string | null> => {
     return new Promise((resolve) => {
       if (!url) { resolve(null); return; }
       const img = new Image();
       img.crossOrigin = "Anonymous";
+      
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = targetWidth * 4;  // High Definition
-        canvas.height = targetHeight * 4;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) { resolve(null); return; }
-
-        const activeZoom = (zoom !== undefined && !isNaN(zoom)) ? zoom : 100;
-        const activeOffsetX = (offsetX !== undefined && !isNaN(offsetX)) ? offsetX : 50;
-        const activeOffsetY = (offsetY !== undefined && !isNaN(offsetY)) ? offsetY : 50;
-
-        const scale = activeZoom / 100;
-        const isContain = activeZoom < 100;
-
-        const imgRatio = img.width / img.height;
-        const targetRatio = targetWidth / targetHeight;
-
-        let sx = 0;
-        let sy = 0;
-        let sw = img.width;
-        let sh = img.height;
-
-        if (!isContain) {
-          // Cover behavior with zoom and offset
-          let sw_base = img.width;
-          let sh_base = img.height;
-
-          if (imgRatio > targetRatio) {
-            sh_base = img.height;
-            sw_base = img.height * targetRatio;
-          } else {
-            sw_base = img.width;
-            sh_base = img.width / targetRatio;
-          }
-
-          sw = sw_base / scale;
-          sh = sw / targetRatio;
-
-          // Clamp values to ensure we stay inside the source image dimensions
-          if (sw > img.width) {
-            sw = img.width;
-            sh = sw / targetRatio;
-          }
-          if (sh > img.height) {
-            sh = img.height;
-            sw = sh * targetRatio;
-          }
-
-          // Offset slides zoom window
-          sx = (img.width - sw) * (activeOffsetX / 100);
-          sy = (img.height - sh) * (activeOffsetY / 100);
-        } else {
-          // Contain behavior
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          let w_draw = canvas.width * scale;
-          let h_draw = canvas.height * scale;
-
-          if (imgRatio > targetRatio) {
-            h_draw = w_draw / imgRatio;
-          } else {
-            w_draw = h_draw * imgRatio;
-          }
-
-          const x_draw = (canvas.width - w_draw) * (activeOffsetX / 100);
-          const y_draw = (canvas.height - h_draw) * (activeOffsetY / 100);
-
-          ctx.drawImage(img, 0, 0, img.width, img.height, x_draw, y_draw, w_draw, h_draw);
-          resolve(canvas.toDataURL("image/jpeg", 0.95));
+        // 1. Obtain real pixel dimensions of the uploaded image
+        const realW = img.naturalWidth || img.width;
+        const realH = img.naturalHeight || img.height;
+        if (!realW || !realH || !targetWidth || !targetHeight) {
+          resolve(null);
           return;
         }
 
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.95));
+        // 2. Automatically calculate target container aspect ratio & force canvas to correct orientation and ratio
+        const targetRatio = targetWidth / targetHeight;
+        const dpr = 4; // High-resolution rendering multiplier for sharp export
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(targetWidth * dpr);
+        canvas.height = Math.round(targetHeight * dpr);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve(null); return; }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+
+        if (filterCss && filterCss !== "none") {
+          try {
+            ctx.filter = filterCss;
+          } catch (e) {
+            console.warn("Canvas filter error:", e);
+          }
+        }
+
+        // 3. User adjustments: zoom & offsets
+        const activeZoom = (zoom !== undefined && !isNaN(zoom) && zoom > 0) ? zoom : 100;
+        const activeOffsetX = (offsetX !== undefined && !isNaN(offsetX)) ? Math.max(0, Math.min(100, offsetX)) : 50;
+        const activeOffsetY = (offsetY !== undefined && !isNaN(offsetY)) ? Math.max(0, Math.min(100, offsetY)) : 50;
+
+        const imgRatio = realW / realH;
+        const scale = activeZoom / 100;
+        const isContain = activeZoom < 100;
+
+        if (!isContain) {
+          // Standard 'cover' behavior: compute source crop window (sw, sh) strictly matching targetRatio
+          let baseSw = realW;
+          let baseSh = realH;
+
+          if (imgRatio > targetRatio) {
+            // Source is wider than target frame: match height, crop width
+            baseSh = realH;
+            baseSw = realH * targetRatio;
+          } else {
+            // Source is taller than target frame: match width, crop height
+            baseSw = realW;
+            baseSh = realW / targetRatio;
+          }
+
+          // Apply zoom scale while preserving the exact targetRatio aspect ratio (sw / sh === targetRatio)
+          let sw = baseSw / scale;
+          let sh = baseSh / scale;
+
+          // Clamping to guarantee sw and sh remain strictly within real image bounds without changing aspect ratio
+          if (sw > realW) {
+            sw = realW;
+            sh = sw / targetRatio;
+          }
+          if (sh > realH) {
+            sh = realH;
+            sw = sh * targetRatio;
+          }
+
+          // Calculate source crop offsets (sx, sy) sliding the zoom window
+          let sx = (realW - sw) * (activeOffsetX / 100);
+          let sy = (realH - sh) * (activeOffsetY / 100);
+
+          // Boundary safety clamps
+          sx = Math.max(0, Math.min(realW - sw, sx));
+          sy = Math.max(0, Math.min(realH - sh, sy));
+
+          // Draw cropped rectangle to canvas: perfectly fills target container with zero deformation
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.95));
+        } else {
+          // Contain mode (zoom < 100): draw complete image letterboxed on clean white background preserving real aspect ratio
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          let dw = canvas.width * scale;
+          let dh = canvas.height * scale;
+
+          if (imgRatio > targetRatio) {
+            dh = dw / imgRatio;
+          } else {
+            dw = dh * imgRatio;
+          }
+
+          const dx = (canvas.width - dw) * (activeOffsetX / 100);
+          const dy = (canvas.height - dh) * (activeOffsetY / 100);
+
+          ctx.drawImage(img, 0, 0, realW, realH, dx, dy, dw, dh);
+          resolve(canvas.toDataURL("image/jpeg", 0.95));
+        }
       };
+
       img.onerror = () => resolve(null);
       img.src = url;
-      setTimeout(() => resolve(null), 3000);
+      setTimeout(() => resolve(null), 8000);
     });
   };
 
@@ -329,7 +414,8 @@ export const disegnaModellaSuPDF = async (
       getDimensioniSlot("Left").h,
       resolvedDati?.zoomLeft,
       resolvedDati?.offsetXLeft,
-      resolvedDati?.offsetYLeft
+      resolvedDati?.offsetYLeft,
+      getFilterCss(resolvedDati?.filterLeft)
     ),
     elaboraImmagineCover(
       foto2, 
@@ -337,7 +423,8 @@ export const disegnaModellaSuPDF = async (
       getDimensioniSlot("Center").h,
       resolvedDati?.zoomCenter,
       resolvedDati?.offsetXCenter,
-      resolvedDati?.offsetYCenter
+      resolvedDati?.offsetYCenter,
+      getFilterCss(resolvedDati?.filterCenter)
     ),
     elaboraImmagineCover(
       foto3, 
@@ -345,7 +432,8 @@ export const disegnaModellaSuPDF = async (
       getDimensioniSlot("Right").h,
       resolvedDati?.zoomRight,
       resolvedDati?.offsetXRight,
-      resolvedDati?.offsetYRight
+      resolvedDati?.offsetYRight,
+      getFilterCss(resolvedDati?.filterRight)
     ),
     elaboraImmagineCover(
       foto4, 
@@ -353,7 +441,8 @@ export const disegnaModellaSuPDF = async (
       getDimensioniSlot("image4").h,
       resolvedDati?.zoom4,
       resolvedDati?.offsetX4,
-      resolvedDati?.offsetY4
+      resolvedDati?.offsetY4,
+      getFilterCss(resolvedDati?.filter4)
     ),
     elaboraImmagineCover(
       foto5, 
@@ -361,7 +450,8 @@ export const disegnaModellaSuPDF = async (
       getDimensioniSlot("image5").h,
       resolvedDati?.zoom5,
       resolvedDati?.offsetX5,
-      resolvedDati?.offsetY5
+      resolvedDati?.offsetY5,
+      getFilterCss(resolvedDati?.filter5)
     ),
     elaboraImmagineCover(
       foto6, 
@@ -369,7 +459,8 @@ export const disegnaModellaSuPDF = async (
       getDimensioniSlot("image6").h,
       resolvedDati?.zoom6,
       resolvedDati?.offsetX6,
-      resolvedDati?.offsetY6
+      resolvedDati?.offsetY6,
+      getFilterCss(resolvedDati?.filter6)
     ),
     elaboraImmagineCover(
       foto7, 
@@ -377,7 +468,8 @@ export const disegnaModellaSuPDF = async (
       getDimensioniSlot("image7").h,
       resolvedDati?.zoom7,
       resolvedDati?.offsetX7,
-      resolvedDati?.offsetY7
+      resolvedDati?.offsetY7,
+      getFilterCss(resolvedDati?.filter7)
     ),
     elaboraImmagineCover(
       foto8, 
@@ -385,7 +477,8 @@ export const disegnaModellaSuPDF = async (
       getDimensioniSlot("image8").h,
       resolvedDati?.zoom8,
       resolvedDati?.offsetX8,
-      resolvedDati?.offsetY8
+      resolvedDati?.offsetY8,
+      getFilterCss(resolvedDati?.filter8)
     ),
     elaboraImmagineCover(
       foto9, 
@@ -393,7 +486,8 @@ export const disegnaModellaSuPDF = async (
       getDimensioniSlot("image9").h,
       resolvedDati?.zoom9,
       resolvedDati?.offsetX9,
-      resolvedDati?.offsetY9
+      resolvedDati?.offsetY9,
+      getFilterCss(resolvedDati?.filter9)
     ),
     elaboraImmagineCover(
       foto10, 
@@ -401,7 +495,8 @@ export const disegnaModellaSuPDF = async (
       getDimensioniSlot("image10").h,
       resolvedDati?.zoom10,
       resolvedDati?.offsetX10,
-      resolvedDati?.offsetY10
+      resolvedDati?.offsetY10,
+      getFilterCss(resolvedDati?.filter10)
     ),
   ];
 
@@ -559,10 +654,10 @@ export const disegnaModellaSuPDF = async (
       }
     }
 
-    // Thin split line
-    if (layout !== "campaign-3" && layout !== "campaign-brand-6" && layout !== "campaign-tvc" && layout !== "campaign-tvc-4" && layout !== "campaign-5-hybrid" && layout !== "editorial-6") {
+    // Header split line (only if explicitly enabled by user)
+    if (resolvedDati?.showHeaderDividerLine) {
       pdf.setDrawColor(3, 7, 18);
-      pdf.setLineWidth(0.4);
+      pdf.setLineWidth(0.35);
       pdf.line(15, 45, 282, 45);
     }
   }
@@ -583,16 +678,22 @@ export const disegnaModellaSuPDF = async (
         const originalFont = pdf.getFont().fontName;
         const originalFontSize = pdf.getFontSize();
         
+        const baseSize = resolvedDati.watermarkFontSize 
+          ? Math.max(7, Math.round(resolvedDati.watermarkFontSize * 0.55)) 
+          : Math.max(8, Math.min(15, w * 0.16));
+        const userOpacity = resolvedDati.watermarkOpacity !== undefined ? resolvedDati.watermarkOpacity : 0.22;
+
+        pdf.saveGraphicsState();
+        if (typeof (pdf as any).GState === "function") {
+          const gs = new (pdf as any).GState({ opacity: userOpacity });
+          pdf.setGState(gs);
+        }
+
         pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(Math.max(8, Math.min(15, w * 0.16)));
-        
-        // Shadow (Dark charcoal)
-        pdf.setTextColor(60, 60, 60);
-        pdf.text(watermarkLabel, centerX + 0.3, centerY + 0.3, { angle: -30, align: "center" });
-        
-        // Front (Light white/gray overlay for high contrast)
-        pdf.setTextColor(245, 245, 245);
+        pdf.setFontSize(baseSize);
+        pdf.setTextColor(255, 255, 255);
         pdf.text(watermarkLabel, centerX, centerY, { angle: -30, align: "center" });
+        pdf.restoreGraphicsState();
         
         // Restoring previous font settings
         pdf.setFont(originalFont, "normal");
@@ -797,11 +898,13 @@ export const disegnaModellaSuPDF = async (
       return `${Math.round(cm / 2.54)}"`;
     };
 
+    const sizeDisplayVal = [upperSize, lowerSize].filter(Boolean).join(" / ") || (resolvedTaglia !== "—" ? resolvedTaglia : "");
     const details = [
       `Height : ${resolvedAltezza} ${altezza !== "—" ? "/ " + outputFtIn(String(altezza)) : ""}`,
       `Bust : ${resolvedSeno} ${seno !== "—" ? "/ " + outputInches(String(seno)) : ""}`,
       `Waist : ${resolvedVita} ${vita !== "—" ? "/ " + outputInches(String(vita)) : ""}`,
       `Hip : ${resolvedFianchi} ${fianchi !== "—" ? "/ " + outputInches(String(fianchi)) : ""}`,
+      sizeDisplayVal ? `Size : ${sizeDisplayVal}` : "",
       resolvedCapelli !== "—" ? `${resolvedCapelli} Hair` : "",
       resolvedOcchi !== "—" ? `${resolvedOcchi} Eyes` : ""
     ].filter(Boolean);
@@ -864,12 +967,14 @@ export const disegnaModellaSuPDF = async (
       return `${Math.round(cm / 2.54)}"`;
     };
 
+    const sizeDisplayVal = [upperSize, lowerSize].filter(Boolean).join(" / ") || (resolvedTaglia !== "—" ? resolvedTaglia : "");
     const details = [
       `Height : ${resolvedAltezza} ${altezza !== "—" ? "/ " + outputFtIn(String(altezza)) : ""}`,
       `Bust ${resolvedSeno} ${seno !== "—" ? "/ " + outputInches(String(seno)) : ""}`,
       `Waist ${resolvedVita} ${vita !== "—" ? "/ " + outputInches(String(vita)) : ""}`,
       `Hips ${resolvedFianchi} ${fianchi !== "—" ? "/ " + outputInches(String(fianchi)) : ""}`,
       resolvedScarpe !== "—" ? `Shoe: ${resolvedScarpe}` : "",
+      sizeDisplayVal ? `Size: ${sizeDisplayVal}` : "",
       resolvedCapelli !== "—" ? `${resolvedCapelli} Hair` : "",
       resolvedOcchi !== "—" ? `${resolvedOcchi} Eyes` : ""
     ].filter(Boolean);
@@ -924,10 +1029,12 @@ export const disegnaModellaSuPDF = async (
     pdf.setFillColor(r, g, b);
     pdf.rect(15, 45, 267, 135, "F");
 
-    // Redraw the header split line to make sure it's on top of the background backplate
-    pdf.setDrawColor(3, 7, 18);
-    pdf.setLineWidth(0.45);
-    pdf.line(15, 45, 282, 45);
+    // Header split line (only if enabled)
+    if (resolvedDati?.showHeaderDividerLine) {
+      pdf.setDrawColor(3, 7, 18);
+      pdf.setLineWidth(0.45);
+      pdf.line(15, 45, 282, 45);
+    }
 
     // 2. Draw white frames and images inside
     // Keep exact 125/140 aspect ratio (which is 100/112) to match getDimensioniSlot perfectly and prevent stretch/distortion.
@@ -1105,12 +1212,14 @@ export const disegnaModellaSuPDF = async (
       return `${Math.round(cm / 2.54)}"`;
     };
 
+    const sizeDisplayVal = [upperSize, lowerSize].filter(Boolean).join(" / ") || (resolvedTaglia !== "—" ? resolvedTaglia : "");
     const details = [
       `Height : ${resolvedAltezza} ${altezza !== "—" ? "/ " + outputFtIn(String(altezza)) : ""}`,
       `Bust ${resolvedSeno} ${seno !== "—" ? "/ " + outputInches(String(seno)) : ""}`,
       `Waist ${resolvedVita} ${vita !== "—" ? "/ " + outputInches(String(vita)) : ""}`,
       `Hips ${resolvedFianchi} ${fianchi !== "—" ? "/ " + outputInches(String(fianchi)) : ""}`,
       resolvedScarpe !== "—" ? `Shoes : ${resolvedScarpe}` : "",
+      sizeDisplayVal ? `Size : ${sizeDisplayVal}` : "",
       resolvedCapelli !== "—" ? `${resolvedCapelli} Hair` : "",
       resolvedOcchi !== "—" ? `${resolvedOcchi} Eyes` : ""
     ].filter(Boolean);
@@ -1370,19 +1479,38 @@ export const disegnaModellaSuPDF = async (
 
     // Dynamic specs drawing list
     let specX = 12;
+    const sizeDisplayVal = [upperSize, lowerSize].filter(Boolean).join(" / ") || (resolvedTaglia !== "—" ? resolvedTaglia : "");
     const specsItems = [
-      { label: "HEIGHT", val: resolvedAltezza },
-      { label: "BUST", val: resolvedSeno },
-      { label: "WAIST", val: resolvedVita },
-      { label: "HIPS", val: resolvedFianchi },
-      { label: "SHOES", val: resolvedScarpe },
-      { label: "HAIR", val: resolvedCapelli },
-      { label: "EYES", val: resolvedOcchi },
-    ].filter(s => s.val);
+      { label: "HEIGHT", val: resolvedAltezza !== "—" ? resolvedAltezza : "" },
+      { label: "BUST", val: resolvedSeno !== "—" ? resolvedSeno : "" },
+      { label: "WAIST", val: resolvedVita !== "—" ? resolvedVita : "" },
+      { label: "HIPS", val: resolvedFianchi !== "—" ? resolvedFianchi : "" },
+      { label: "SHOES", val: resolvedScarpe !== "—" ? resolvedScarpe : "" },
+      { label: "HAIR", val: resolvedCapelli !== "—" ? resolvedCapelli : "" },
+      { label: "EYES", val: resolvedOcchi !== "—" ? resolvedOcchi : "" },
+      { label: "SIZE", val: sizeDisplayVal },
+    ].filter(s => s.val && s.val !== "—");
+
+    let specFontSize = 7.5;
+    let specSpacing = 4.5;
+    let totalNeededWidth = 0;
+    pdf.setFontSize(specFontSize);
+    specsItems.forEach(sp => {
+      pdf.setFont("helvetica", "normal");
+      const widthLabel = pdf.getTextWidth(sp.label);
+      pdf.setFont("helvetica", "bold");
+      const widthVal = pdf.getTextWidth(sp.val);
+      totalNeededWidth += widthLabel + 1.5 + widthVal + specSpacing;
+    });
+
+    if (totalNeededWidth > 195) {
+      specFontSize = 6.8;
+      specSpacing = 3.5;
+    }
 
     specsItems.forEach((sp) => {
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(7.5);
+      pdf.setFontSize(specFontSize);
       pdf.setTextColor(115, 115, 115); // Gray for label
       pdf.text(sp.label, specX, 192);
       const widthLabel = pdf.getTextWidth(sp.label);
@@ -1392,7 +1520,7 @@ export const disegnaModellaSuPDF = async (
       pdf.text(sp.val, specX + widthLabel + 1.5, 192);
       const widthVal = pdf.getTextWidth(sp.val);
       
-      specX += widthLabel + widthVal + 5; // Spacing to next spec
+      specX += widthLabel + widthVal + specSpacing; // Spacing to next spec
     });
 
     // Right Side: Agency details
@@ -1625,6 +1753,11 @@ export const disegnaModellaSuPDF = async (
       console.error("Errore nel disegno del logo in basso a destra del PDF:", e);
     }
   }
+
+  // Apply textual watermark on top of page content if enabled
+  if (watermarkOptions?.enabled && watermarkOptions?.text) {
+    applicaWatermarkSuPaginaPDF(pdf, watermarkOptions);
+  }
 };
 
 const loadPdfJs = (): Promise<any> => {
@@ -1706,26 +1839,36 @@ const elaboraImmagineCoverPerPDF = (url: string, targetWidth: number, targetHeig
     const img = new Image();
     img.crossOrigin = "Anonymous";
     img.onload = () => {
+      const realW = img.naturalWidth || img.width;
+      const realH = img.naturalHeight || img.height;
+      if (!realW || !realH || !targetWidth || !targetHeight) {
+        resolve(null);
+        return;
+      }
+
       const canvas = document.createElement("canvas");
-      canvas.width = targetWidth * 4;  // High Definition
-      canvas.height = targetHeight * 4;
+      canvas.width = Math.round(targetWidth * 4);  // High Definition
+      canvas.height = Math.round(targetHeight * 4);
       const ctx = canvas.getContext("2d");
       if (!ctx) { resolve(null); return; }
 
-      const imgRatio = img.width / img.height;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
+      const imgRatio = realW / realH;
       const targetRatio = targetWidth / targetHeight;
-      let sx, sy, sw, sh;
+      let sx = 0, sy = 0, sw = realW, sh = realH;
 
       if (imgRatio > targetRatio) {
-        sh = img.height;
-        sw = img.height * targetRatio;
-        sx = (img.width - sw) / 2;
+        sh = realH;
+        sw = realH * targetRatio;
+        sx = (realW - sw) / 2;
         sy = 0;
       } else {
-        sw = img.width;
-        sh = img.width / targetRatio;
+        sw = realW;
+        sh = realW / targetRatio;
         sx = 0;
-        sy = (img.height - sh) / 2;
+        sy = (realH - sh) / 2;
       }
 
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
@@ -1733,7 +1876,7 @@ const elaboraImmagineCoverPerPDF = (url: string, targetWidth: number, targetHeig
     };
     img.onerror = () => resolve(null);
     img.src = url;
-    setTimeout(() => resolve(null), 3000);
+    setTimeout(() => resolve(null), 8000);
   });
 };
 
@@ -1751,6 +1894,296 @@ export const getBase64ImageAspectRatio = (url: string): Promise<number> => {
   });
 };
 
+/**
+ * Genera la pagina di Indice PDF Dinamico & Scheda Selezione Casting.
+ * Elenca i modelli inclusi nel catalogo con miniatura, categoria, statistiche,
+ * numero di pagina con link interattivo cliccabile e casella di spunta [ ] per le scelte del cliente.
+ */
+export const disegnaIndiceCastingSuPDF = async (
+  pdf: any,
+  listaModelle: any[],
+  agency: any,
+  opzioni?: {
+    includeCover?: boolean;
+    includeBackCover?: boolean;
+    includeDynamicIndex?: boolean;
+    indexTitleText?: string;
+    indexSubtitleText?: string;
+    watermarkOptions?: {
+      enabled?: boolean;
+      text?: string;
+      opacity?: number;
+      fontSize?: number;
+    };
+  }
+) => {
+  const pageSize = 24;
+  const totalIndexPages = Math.max(1, Math.ceil(listaModelle.length / pageSize));
+
+  for (let pageIdx = 0; pageIdx < totalIndexPages; pageIdx++) {
+    pdf.addPage([297, 210], "landscape");
+
+    const pageStartIndex = pageIdx * pageSize;
+    const pageModels = listaModelle.slice(pageStartIndex, pageStartIndex + pageSize);
+    const totalOnPage = pageModels.length;
+
+    // Sfondo Bianco Editoriale Puro
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 0, 297, 210, "F");
+
+    // 1. TOP HEADER BAR (Stile Luxury Fashion Slate-900)
+    pdf.setFillColor(15, 23, 42);
+    pdf.rect(0, 0, 297, 28, "F");
+
+    // Monogramma e Brand Agenzia
+    pdf.setFillColor(30, 41, 59);
+    pdf.roundedRect(12, 5, 18, 18, 2, 2, "F");
+    pdf.setTextColor(234, 179, 8); // Gold
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text("✦", 21, 16.5, { align: "center" });
+
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    pdf.text((agency?.name || "COSMOPOLITAN").toUpperCase(), 34, 14);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(148, 163, 184);
+    const cityStr = agency?.city ? `${agency.city.toUpperCase()} • ` : "";
+    pdf.text(`${cityStr}PORTFOLIO CATALOGO & CASTING SELECTION`, 34, 20);
+
+    // Titolo Centrale
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.setTextColor(255, 255, 255);
+    const headerTitle = (opzioni?.indexTitleText || "INDICE CATALOGO & SCHEDA SELEZIONE CASTING").toUpperCase();
+    pdf.text(headerTitle, 148.5, 13.5, { align: "center" });
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.8);
+    pdf.setTextColor(165, 180, 252);
+    pdf.text("DOCUMENTO DI RIEPILOGO INTERATTIVO • PREFERENZE & SCELTE CLIENTE", 148.5, 19.5, { align: "center" });
+
+    // Badge Conteggio Modelli
+    pdf.setFillColor(30, 41, 59);
+    pdf.roundedRect(236, 5, 49, 18, 2, 2, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(255, 255, 255);
+    pdf.text("MODELLI INCLUSI", 260.5, 12.5, { align: "center" });
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10.5);
+    pdf.setTextColor(234, 179, 8);
+    pdf.text(String(listaModelle.length), 260.5, 20, { align: "center" });
+
+    // 2. SUB-HEADER BAR CON ISTRUZIONI
+    pdf.setFillColor(241, 245, 249);
+    pdf.rect(0, 28, 297, 8.5, "F");
+    pdf.setDrawColor(226, 232, 240);
+    pdf.setLineWidth(0.3);
+    pdf.line(0, 36.5, 297, 36.5);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(51, 65, 85);
+    const subtitle = opzioni?.indexSubtitleText || "Spuntare la casella [  ] accanto a ciascun modello per indicare la preferenza • Cliccare sul riquadro per aprire la scheda";
+    pdf.text(subtitle, 14, 33.5);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.2);
+    pdf.setTextColor(100, 116, 139);
+    const pageIndicator = totalIndexPages > 1 ? `Pag. ${pageIdx + 1}/${totalIndexPages} • ` : "";
+    pdf.text(`${pageIndicator}DATA: ${new Date().toLocaleDateString("it-IT")}`, 283, 33.5, { align: "right" });
+
+    // 3. GRIGLIA MODELLI
+    const startY = 40;
+    const availableH = 153;
+    const availableW = 273; // Da X=12 a X=285
+
+    let cols = 2;
+    if (totalOnPage > 12) {
+      cols = 3;
+    } else if (totalOnPage <= 6) {
+      cols = 2;
+    }
+    const rows = Math.ceil(totalOnPage / cols);
+    const gapX = 3.5;
+    const gapY = (totalOnPage <= 8) ? 3.5 : (totalOnPage <= 14) ? 2.5 : 2;
+    const cardW = (availableW - (cols - 1) * gapX) / cols;
+    const cardH = Math.min(
+      (totalOnPage <= 6) ? 32 : (totalOnPage <= 12) ? 22 : 16.5,
+      (availableH - (rows - 1) * gapY) / rows
+    );
+
+    for (let i = 0; i < totalOnPage; i++) {
+      const model = pageModels[i];
+      const globalIndex = pageStartIndex + i;
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const cardX = 12 + col * (cardW + gapX);
+      const cardY = startY + row * (cardH + gapY);
+
+      // Sfondo Card con bordo sottile
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(226, 232, 240);
+      pdf.setLineWidth(0.3);
+      pdf.roundedRect(cardX, cardY, cardW, cardH, 1.5, 1.5, "FD");
+
+      // Numero di pagina di destinazione
+      const targetPage = (opzioni?.includeCover ? 2 : 1) + globalIndex;
+
+      // Casella di Spunta (Checkbox Preferenza)
+      const boxSize = Math.max(4.8, Math.min(6, cardH * 0.35));
+      const boxY = cardY + (cardH - boxSize) / 2 - 1.2;
+      pdf.setFillColor(248, 250, 252);
+      pdf.setDrawColor(99, 102, 241); // Bordo Indigo
+      pdf.setLineWidth(0.4);
+      pdf.roundedRect(cardX + 2.5, boxY, boxSize, boxSize, 0.8, 0.8, "FD");
+
+      // Dicitura Casella di Spunta
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(4.2);
+      pdf.setTextColor(99, 102, 241);
+      pdf.text("SCELTA", cardX + 2.5 + boxSize / 2, boxY + boxSize + 3, { align: "center" });
+
+      // Miniatura Foto Volto (Thumbnail)
+      const thumbLeft = cardX + 2.5 + boxSize + 2.5;
+      const thumbH = Math.max(9, Math.min(18, cardH - 3.5));
+      const thumbW = Math.round(thumbH * 0.76);
+      const thumbY = cardY + (cardH - thumbH) / 2;
+
+      const rawPhoto = model.imageLeft || model.imageCenter || model.imageRight || model.image4 || "";
+      if (rawPhoto) {
+        try {
+          const croppedThumb = await elaboraImmagineCoverPerPDF(rawPhoto, thumbW, thumbH);
+          if (croppedThumb) {
+            pdf.addImage(croppedThumb, "JPEG", thumbLeft, thumbY, thumbW, thumbH);
+            pdf.setDrawColor(203, 213, 225);
+            pdf.setLineWidth(0.2);
+            pdf.roundedRect(thumbLeft, thumbY, thumbW, thumbH, 0.5, 0.5, "D");
+          } else {
+            pdf.setFillColor(241, 245, 249);
+            pdf.roundedRect(thumbLeft, thumbY, thumbW, thumbH, 0.5, 0.5, "F");
+          }
+        } catch {
+          pdf.setFillColor(241, 245, 249);
+          pdf.roundedRect(thumbLeft, thumbY, thumbW, thumbH, 0.5, 0.5, "F");
+        }
+      } else {
+        pdf.setFillColor(241, 245, 249);
+        pdf.roundedRect(thumbLeft, thumbY, thumbW, thumbH, 0.5, 0.5, "F");
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(7);
+        pdf.setTextColor(148, 163, 184);
+        pdf.text(model.name ? model.name.charAt(0) : "M", thumbLeft + thumbW / 2, thumbY + thumbH / 2 + 1, { align: "center" });
+      }
+
+      // Dettagli Modello e Tag Categoria
+      const textX = thumbLeft + thumbW + 3;
+      const rightBadgeW = 18;
+      const maxTextW = Math.max(20, cardW - (textX - cardX) - rightBadgeW - 3);
+
+      // Nome Modello con indice numerico
+      const indexStr = String(globalIndex + 1).padStart(2, "0");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(cardH > 22 ? 8.5 : 7.2);
+      pdf.setTextColor(15, 23, 42);
+      const fullName = `${indexStr}. ${(model.name || "MODELLO").toUpperCase()}`;
+      const truncatedName = pdf.splitTextToSize(fullName, maxTextW)[0] || fullName;
+      pdf.text(truncatedName, textX, cardY + (cardH > 20 ? 6.2 : 5.2));
+
+      // Tag Categoria & Inquadratura
+      let categoryTag = "Portrait & Body";
+      if (model.gender === "model man") {
+        categoryTag = "Man • Fashion";
+      } else if (model.gender === "child model woman") {
+        categoryTag = "Kids • Girl";
+      } else if (model.gender === "child model man") {
+        categoryTag = "Kids • Boy";
+      } else if (model.gender === "model woman") {
+        categoryTag = "Woman • Fashion";
+      }
+
+      if (model.layout === "solo" || model.layout === "campaign-solo") {
+        categoryTag += " • Full Body";
+      } else if (model.layout === "editorial-6" || model.layout === "grid-6" || model.layout === "grid-4") {
+        categoryTag += " • Editorial";
+      } else if (model.layout === "cinematic-2" || model.layout === "duo") {
+        categoryTag += " • Duo Campaign";
+      }
+
+      const tagY = cardY + (cardH > 20 ? 11 : 9);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(5);
+      const tagWidth = Math.min(maxTextW, pdf.getTextWidth(categoryTag.toUpperCase()) + 3);
+      pdf.setFillColor(243, 244, 246);
+      pdf.roundedRect(textX, tagY - 2.6, tagWidth, 3.6, 0.8, 0.8, "F");
+      pdf.setTextColor(79, 70, 229);
+      pdf.text(categoryTag.toUpperCase(), textX + 1.2, tagY);
+
+      // Dati tecnici rapidi (Altezza, Scarpe, Occhi)
+      if (cardH > 15) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(5.2);
+        pdf.setTextColor(100, 116, 139);
+        const statsParts = [];
+        if (model.height) statsParts.push(`H: ${model.height}cm`);
+        if (model.shoes) statsParts.push(`Scarpe: ${model.shoes}`);
+        if (model.eyes) statsParts.push(`Occhi: ${model.eyes}`);
+        const statsLine = statsParts.join(" • ");
+        if (statsLine) {
+          pdf.text(statsLine, textX, cardY + (cardH > 20 ? 16.5 : 13.5));
+        }
+      }
+
+      // Badge Numero Pagina a Destra
+      const badgeX = cardX + cardW - rightBadgeW - 2;
+      const badgeH = 5.8;
+      const badgeY = cardY + (cardH - badgeH) / 2;
+      pdf.setFillColor(238, 242, 255);
+      pdf.roundedRect(badgeX, badgeY, rightBadgeW, badgeH, 1, 1, "F");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(5.5);
+      pdf.setTextColor(67, 56, 202);
+      pdf.text(`PAG. ${String(targetPage).padStart(2, "0")} →`, badgeX + rightBadgeW / 2, badgeY + 4, { align: "center" });
+
+      // Link Interattivo Cliccabile nel PDF (salta direttamente alla pagina della modella)
+      pdf.link(cardX, cardY, cardW, cardH, { pageNumber: targetPage });
+    }
+
+    // 4. FOOTER BAR CON CONTATTI AGENZIA
+    pdf.setDrawColor(226, 232, 240);
+    pdf.setLineWidth(0.3);
+    pdf.line(12, 196, 285, 196);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.8);
+    pdf.setTextColor(15, 23, 42);
+    pdf.text(`${(agency?.name || "COSMOPOLITAN").toUpperCase()} • PRENOTAZIONI & CASTING MANAGEMENT`, 14, 201);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.2);
+    pdf.setTextColor(100, 116, 139);
+    const contactLine = [
+      agency?.email ? `Email: ${agency.email}` : "",
+      agency?.phone ? `Tel: ${agency.phone}` : "",
+      agency?.whatsapp ? `WhatsApp: ${agency.whatsapp}` : "",
+      agency?.web ? `Web: ${agency.web}` : ""
+    ].filter(Boolean).join("  |  ");
+    pdf.text(contactLine, 14, 205);
+
+    pdf.text("SCHEDA DI SELEZIONE UFFICIALE • RESTITUIRE CON LE SPUNTE [✓]", 283, 201, { align: "right" });
+    pdf.text(`© ${new Date().getFullYear()} ${agency?.name || "Cosmopolitan Agency"} • Indice interattivo`, 283, 205, { align: "right" });
+
+    // Watermark eventuale
+    if (opzioni?.watermarkOptions?.enabled) {
+      applicaWatermarkSuPaginaPDF(pdf, opzioni.watermarkOptions);
+    }
+  }
+};
+
 export const gestisciDownloadCatalogo = async (
   listaModelle: any[],
   agency: any,
@@ -1759,6 +2192,9 @@ export const gestisciDownloadCatalogo = async (
   opzioni?: {
     includeCover?: boolean;
     includeBackCover?: boolean;
+    includeDynamicIndex?: boolean;
+    indexTitleText?: string;
+    indexSubtitleText?: string;
     coverTitleText?: string;
     coverSubtitleText?: string;
     coverDescText?: string;
@@ -1770,11 +2206,18 @@ export const gestisciDownloadCatalogo = async (
     fontFamily?: string;
     themeColor?: "silver" | "charcoal" | "beige" | "gold" | "white";
     flattenPdf?: boolean;
+    returnBlob?: boolean;
+    watermarkOptions?: {
+      enabled?: boolean;
+      text?: string;
+      opacity?: number;
+      fontSize?: number;
+    };
   }
 ) => {
   try {
     if (!listaModelle || listaModelle.length === 0) {
-      alert("Seleziona almeno una scheda per generare il catalogo.");
+      console.warn("Nessuna scheda selezionata per generare il catalogo.");
       return;
     }
 
@@ -1902,6 +2345,10 @@ export const gestisciDownloadCatalogo = async (
       if (agency?.whatsapp) {
         pdf.text(`WA: ${agency.whatsapp}`, 193.3, contactLineY);
       }
+
+      if (opzioni?.watermarkOptions?.enabled) {
+        applicaWatermarkSuPaginaPDF(pdf, opzioni.watermarkOptions);
+      }
     }
 
     // --- 2. MODELS CARDS ---
@@ -1912,10 +2359,15 @@ export const gestisciDownloadCatalogo = async (
       } else {
         isFirstPage = false;
       }
-      await disegnaModellaSuPDF(pdf, datiModella, index, listaModelle.length, socialScelti, agency, opzioni?.themeColor);
+      await disegnaModellaSuPDF(pdf, datiModella, index, listaModelle.length, socialScelti, agency, opzioni?.themeColor, opzioni?.fontFamily, opzioni?.watermarkOptions);
     }
 
-    // --- 3. OUTRO BACK COVER PAGE ---
+    // --- 3. DYNAMIC CASTING SELECTION INDEX PAGE (Ultima Pagina / Riepilogo con Checkbox [ ]) ---
+    if (opzioni?.includeDynamicIndex) {
+      await disegnaIndiceCastingSuPDF(pdf, listaModelle, agency, opzioni);
+    }
+
+    // --- 4. OUTRO BACK COVER PAGE ---
     if (opzioni?.includeBackCover) {
       pdf.addPage([297, 210], "landscape");
 
@@ -1975,12 +2427,23 @@ export const gestisciDownloadCatalogo = async (
       pdf.setTextColor(107, 114, 128);
       const footerText = opzioni?.backCoverFooterText || "GRAZIE PER L'ATTENZIONE • PORTFOLIO CATALOGO UFFICIALE";
       pdf.text(`${footerText.toUpperCase()} ${new Date().getFullYear()}`, 148.5, 185, { align: "center" });
+
+      if (opzioni?.watermarkOptions?.enabled) {
+        applicaWatermarkSuPaginaPDF(pdf, opzioni.watermarkOptions);
+      }
     }
 
     let finalPdf = pdf;
     if (opzioni?.flattenPdf) {
       if (typeof setIsGenerating === "function") setIsGenerating(true);
       finalPdf = await flattenPdfDocument(pdf);
+    }
+
+    if (opzioni?.returnBlob) {
+      const count = listaModelle.length;
+      const fileName = `Book_Catalogo_Cosmopolitan_${count}_Modelli.pdf`;
+      const blob = finalPdf.output("blob");
+      return { blob, fileName };
     }
 
     finalPdf.save(`Catalogo_Modelle_Cosmopolitan.pdf`);
@@ -2000,6 +2463,19 @@ export default function App() {
   // Undo / Redo history state
   const [past, setPast] = useState<ModelData[]>([]);
   const [future, setFuture] = useState<ModelData[]>([]);
+
+  // Auto-save toggle state, status, and last saved time
+  const [autoSave, setAutoSave] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem("cosmo_auto_save_models");
+      return stored !== null ? stored === "true" : true;
+    } catch {
+      return true;
+    }
+  });
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<Date | null>(null);
+  const lastFirestoreSavedJsonRef = useRef<string>(JSON.stringify(model));
 
   // We keep a ref of the model state that is currently "committed" in the history
   const lastSavedModelRef = useRef<ModelData>({ ...SAMPLE_MODELS[0] });
@@ -2121,13 +2597,29 @@ export default function App() {
   
   // Custom styling settings
   const [themeColor, setThemeColor] = useState<"silver" | "charcoal" | "beige" | "gold" | "white">("silver");
-  const [fontFamily, setFontFamily] = useState<"serif" | "display" | "sans">("sans");
+  const [fontFamily, setFontFamily] = useState<FontFamilyType>("sans");
   
   // Agency Information
   const [agency, setAgency] = useState<AgencyInfo>({ ...DEFAULT_AGENCY });
   
-  // Local Database of characters (localStorage key)
-  const [localProfiles, setLocalProfiles] = useState<ModelData[]>([]);
+  // Local Database of characters (localStorage key) - Initialized with cached data or sample models immediately
+  const [localProfiles, setLocalProfiles] = useState<ModelData[]>(() => {
+    try {
+      const cachedModels = localStorage.getItem("fashion_catalog_profiles");
+      if (cachedModels) {
+        const parsed = JSON.parse(cachedModels);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not read local persistence cache on init", e);
+    }
+    return [...SAMPLE_MODELS];
+  });
+
+  // Cloud Database state (tracks if Firestore daily read quota has been reached on free tier)
+  const [cloudQuotaExceeded, setCloudQuotaExceeded] = useState<boolean>(false);
   
   // Notification States
   const [notification, setNotification] = useState<{
@@ -2145,9 +2637,55 @@ export default function App() {
   const [autoScale, setAutoScale] = useState<boolean>(true);
   const [showForm, setShowForm] = useState<boolean>(true);
 
+  // Alignment grid overlay state
+  const [showGridOverlay, setShowGridOverlay] = useState<boolean>(false);
+  const [gridOverlayMode, setGridOverlayMode] = useState<GridMode>("thirds");
+
   // Multi-composit selection & export states
   const [showMultiExport, setShowMultiExport] = useState<boolean>(false);
-  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+  const [selectedModelIds, setSelectedModelIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("fashion_catalog_selected_ids");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  const handleToggleSelectModelId = (id: string) => {
+    setSelectedModelIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try {
+        localStorage.setItem("fashion_catalog_selected_ids", JSON.stringify(next));
+        localStorage.setItem("fashion_catalog_selected_init", "true");
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const handleSelectAllModelIds = (ids: string[]) => {
+    setSelectedModelIds((prev) => {
+      const combined = Array.from(new Set([...prev, ...ids]));
+      try {
+        localStorage.setItem("fashion_catalog_selected_ids", JSON.stringify(combined));
+        localStorage.setItem("fashion_catalog_selected_init", "true");
+      } catch (e) {}
+      return combined;
+    });
+  };
+
+  const handleDeselectAllModelIds = (ids?: string[]) => {
+    setSelectedModelIds((prev) => {
+      const next = ids ? prev.filter((x) => !ids.includes(x)) : [];
+      try {
+        localStorage.setItem("fashion_catalog_selected_ids", JSON.stringify(next));
+        localStorage.setItem("fashion_catalog_selected_init", "true");
+      } catch (e) {}
+      return next;
+    });
+  };
   const [isExportingMulti, setIsExportingMulti] = useState(false);
   const [exportProgress, setExportProgress] = useState("");
   const [exportingProfiles, setExportingProfiles] = useState<ModelData[] | null>(null);
@@ -2159,9 +2697,16 @@ export default function App() {
   const [exportedFileName, setExportedFileName] = useState<string>("");
   const [isExportOverlayOpen, setIsExportOverlayOpen] = useState<boolean>(false);
 
+  // Card Import modal dialog state
+  const [showImportCardModal, setShowImportCardModal] = useState<boolean>(false);
+  const [showShareModal, setShowShareModal] = useState<boolean>(false);
+
   // Cover page & back cover configuration
   const [includeCover, setIncludeCover] = useState<boolean>(false);
   const [includeBackCover, setIncludeBackCover] = useState<boolean>(false);
+  const [includeDynamicIndex, setIncludeDynamicIndex] = useState<boolean>(false);
+  const [indexTitleText, setIndexTitleText] = useState<string>("INDICE & SCHEDA SELEZIONE CASTING");
+  const [indexSubtitleText, setIndexSubtitleText] = useState<string>("Spuntare la casella [  ] per indicare le preferenze sulle modelle e restituire all'agenzia.");
   const [flattenPdfOption, setFlattenPdfOption] = useState<boolean>(false);
   const [coverTitleText, setCoverTitleText] = useState<string>("COLLEZIONE MODELLI");
   const [coverSubtitleText, setCoverSubtitleText] = useState<string>("PORTFOLIO COMPOSIT UFFICIALE");
@@ -2171,6 +2716,83 @@ export default function App() {
   const [backCoverText, setBackCoverText] = useState<string>("Grazie per la visione. Per prenotazioni o contatti rivolgersi ai riferimenti indicati.");
   const [backCoverCitiesText, setBackCoverCitiesText] = useState<string>("MILANO • PARIGI • LONDRA • NEW YORK");
   const [backCoverFooterText, setBackCoverFooterText] = useState<string>("GRAZIE PER L'ATTENZIONE • PORTFOLIO CATALOGO UFFICIALE");
+
+  // PDF Custom Textual Watermark Configuration States
+  const [enableWatermark, setEnableWatermark] = useState<boolean>(() => {
+    try { return localStorage.getItem("pdf_watermark_enabled") === "true"; } catch { return false; }
+  });
+  const [watermarkText, setWatermarkText] = useState<string>(() => {
+    try { return localStorage.getItem("pdf_watermark_text") || "BOZZA"; } catch { return "BOZZA"; }
+  });
+  const [watermarkOpacity, setWatermarkOpacity] = useState<number>(() => {
+    try {
+      const val = parseFloat(localStorage.getItem("pdf_watermark_opacity") || "0.15");
+      return isNaN(val) ? 0.15 : val;
+    } catch { return 0.15; }
+  });
+  const [watermarkFontSize, setWatermarkFontSize] = useState<number>(() => {
+    try {
+      const val = parseInt(localStorage.getItem("pdf_watermark_fontsize") || "54", 10);
+      return isNaN(val) ? 54 : val;
+    } catch { return 54; }
+  });
+
+  const handleToggleWatermark = (val: boolean) => {
+    setEnableWatermark(val);
+    try { localStorage.setItem("pdf_watermark_enabled", String(val)); } catch (e) {}
+  };
+  const handleChangeWatermarkText = (val: string) => {
+    setWatermarkText(val);
+    try { localStorage.setItem("pdf_watermark_text", val); } catch (e) {}
+  };
+  const handleChangeWatermarkOpacity = (val: number) => {
+    setWatermarkOpacity(val);
+    try { localStorage.setItem("pdf_watermark_opacity", String(val)); } catch (e) {}
+  };
+  const handleChangeWatermarkFontSize = (val: number) => {
+    setWatermarkFontSize(val);
+    try { localStorage.setItem("pdf_watermark_fontsize", String(val)); } catch (e) {}
+  };
+
+  // Mobile View Tab state (Editor vs Preview) for Apple iPhone / Touch screens
+  // Defaults to "preview" on mobile screens (< 1024px) so iPhone users immediately see the model card and quick actions
+  const [mobileActiveTab, setMobileActiveTab] = useState<"editor" | "preview">(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      return "preview";
+    }
+    return "editor";
+  });
+
+  // Fullscreen Lookbook Presentation Mode state for Apple iPad / Mac / Client presentations
+  const [showLookbookModal, setShowLookbookModal] = useState<boolean>(false);
+  const [lookbookIndex, setLookbookIndex] = useState<number>(0);
+
+  // Apple-style subtle haptic feedback helper
+  const triggerHaptic = (type: "light" | "medium" | "success" = "light") => {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try {
+        if (type === "light") navigator.vibrate(12);
+        else if (type === "medium") navigator.vibrate(22);
+        else if (type === "success") navigator.vibrate([15, 30, 20]);
+      } catch {
+        // Ignored if unsupported
+      }
+    }
+  };
+
+  const handleOpenLookbook = (preferredIndex?: number) => {
+    triggerHaptic("medium");
+    const activeList = localProfiles.length > 0 ? localProfiles : SAMPLE_MODELS;
+    let targetIdx = 0;
+    if (typeof preferredIndex === "number") {
+      targetIdx = Math.max(0, Math.min(preferredIndex, activeList.length - 1));
+    } else {
+      const foundIdx = activeList.findIndex((m) => m.id === model.id);
+      targetIdx = foundIdx >= 0 ? foundIdx : 0;
+    }
+    setLookbookIndex(targetIdx);
+    setShowLookbookModal(true);
+  };
 
   // Toggle states for instructions and iframe warning sections
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -2243,10 +2865,16 @@ export default function App() {
     }
   };
 
-  // Automatically select all profiles when loaded
+  // Automatically select all profiles when loaded only on first initialization if user has never set selection
   useEffect(() => {
-    if (localProfiles.length > 0 && selectedModelIds.length === 0) {
-      setSelectedModelIds(localProfiles.map(p => p.id));
+    const isInit = localStorage.getItem("fashion_catalog_selected_init");
+    if (!isInit && localProfiles.length > 0 && selectedModelIds.length === 0) {
+      const allIds = localProfiles.map(p => p.id);
+      setSelectedModelIds(allIds);
+      try {
+        localStorage.setItem("fashion_catalog_selected_ids", JSON.stringify(allIds));
+        localStorage.setItem("fashion_catalog_selected_init", "true");
+      } catch (e) {}
     }
   }, [localProfiles]);
 
@@ -2256,7 +2884,10 @@ export default function App() {
     try {
       const cachedModels = localStorage.getItem("fashion_catalog_profiles");
       if (cachedModels) {
-        setLocalProfiles(JSON.parse(cachedModels));
+        const parsed = JSON.parse(cachedModels);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setLocalProfiles(parsed);
+        }
       }
       const cachedAgency = localStorage.getItem("fashion_catalog_agency");
       if (cachedAgency) {
@@ -2277,22 +2908,43 @@ export default function App() {
             list.push(docSnap.data() as ModelData);
           });
 
-          if (list.length === 0) {
-            console.log("Firestore empty, seeding database with standard profiles...");
-            // Seed base presets
-            for (const sample of SAMPLE_MODELS) {
-              await setDoc(doc(db, modelsCollection, sample.id), sample);
-            }
-          } else {
+          if (list.length > 0) {
             setLocalProfiles(list);
-            localStorage.setItem("fashion_catalog_profiles", JSON.stringify(list));
+            try {
+              localStorage.setItem("fashion_catalog_profiles", JSON.stringify(list));
+            } catch (err) {
+              console.warn("Could not cache models to localStorage", err);
+            }
+            setCloudQuotaExceeded(false);
+          } else {
+            console.log("Firestore empty, preserving local models and seeding...");
+            const currentCache = localStorage.getItem("fashion_catalog_profiles");
+            const parsed = currentCache ? JSON.parse(currentCache) : [];
+            const toSeed = (parsed && parsed.length > 0) ? parsed : SAMPLE_MODELS;
+            for (const sample of toSeed) {
+              try {
+                await setDoc(doc(db, modelsCollection, sample.id), sample);
+              } catch (err) {
+                console.warn("Could not seed model into firestore:", sample.id, err);
+              }
+            }
           }
         } catch (e) {
-          handleFirestoreError(e, OperationType.LIST, modelsCollection);
+          console.error("Error processing models snapshot:", e);
         }
       },
       (error) => {
-        handleFirestoreError(error, OperationType.LIST, modelsCollection);
+        const msg = error instanceof Error ? error.message : String(error);
+        if (msg.includes("Quota") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("resource-exhausted")) {
+          console.warn("Firestore models read quota reached (Google free tier 50,000 reads/day). Running in local protected mode.");
+          setCloudQuotaExceeded(true);
+        } else {
+          try {
+            handleFirestoreError(error, OperationType.LIST, modelsCollection);
+          } catch (err) {
+            console.error("Firestore models listener error handled:", err);
+          }
+        }
       }
     );
 
@@ -2305,21 +2957,41 @@ export default function App() {
           if (docSnap.exists()) {
             const data = docSnap.data() as AgencyInfo;
             setAgency(data);
-            localStorage.setItem("fashion_catalog_agency", JSON.stringify(data));
+            try {
+              localStorage.setItem("fashion_catalog_agency", JSON.stringify(data));
+            } catch (err) {}
           } else {
             console.log("Firestore agency empty, seeding default agency details...");
-            await setDoc(doc(db, "agency", "current"), DEFAULT_AGENCY);
+            try {
+              await setDoc(doc(db, "agency", "current"), DEFAULT_AGENCY);
+            } catch (err) {}
           }
         } catch (e) {
-          handleFirestoreError(e, OperationType.GET, agencyDocPath);
+          console.error("Error processing agency snapshot:", e);
         }
       },
       (error) => {
-        handleFirestoreError(error, OperationType.GET, agencyDocPath);
+        const msg = error instanceof Error ? error.message : String(error);
+        if (msg.includes("Quota") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("resource-exhausted")) {
+          setCloudQuotaExceeded(true);
+        } else {
+          try {
+            handleFirestoreError(error, OperationType.GET, agencyDocPath);
+          } catch (err) {
+            console.error("Firestore agency listener error handled:", err);
+          }
+        }
       }
     );
 
-    // Dynamic scale listener for multi-device responsive preview fit
+    return () => {
+      unsubModels();
+      unsubAgency();
+    };
+  }, []);
+
+  // Dynamic scale listener for multi-device responsive preview fit
+  useEffect(() => {
     const handleResize = () => {
       if (autoScale) {
         const width = window.innerWidth;
@@ -2339,12 +3011,7 @@ export default function App() {
 
     handleResize();
     window.addEventListener("resize", handleResize);
-
-    return () => {
-      unsubModels();
-      unsubAgency();
-      window.removeEventListener("resize", handleResize);
-    };
+    return () => window.removeEventListener("resize", handleResize);
   }, [autoScale]);
 
   // Sync agency changes to Firestore when modified by the user
@@ -2376,6 +3043,8 @@ export default function App() {
   const handleSelectPreset = (p: ModelData) => {
     commitHistoryImmediately({ ...p });
     setModel({ ...p });
+    lastFirestoreSavedJsonRef.current = JSON.stringify(p);
+    setAutoSaveStatus("idle");
     showNotification(`Caricato portfolio di ${p.name}`, "success");
   };
 
@@ -2409,10 +3078,108 @@ export default function App() {
     };
     commitHistoryImmediately(emptyModel);
     setModel(emptyModel);
+    lastFirestoreSavedJsonRef.current = JSON.stringify(emptyModel);
+    setAutoSaveStatus("idle");
     showNotification("Modulo reimpostato per inserire dati vuoti", "info");
   };
 
-  // Save profile to Firestore Cloud Database
+  // Toggle Auto-save handler
+  const handleToggleAutoSave = (val: boolean) => {
+    setAutoSave(val);
+    try {
+      localStorage.setItem("cosmo_auto_save_models", val ? "true" : "false");
+    } catch (e) {
+      console.warn("Could not save auto-save preference to localStorage", e);
+    }
+    showNotification(
+      val 
+        ? "Salvataggio automatico Cloud abilitato (Auto-save ON)" 
+        : "Salvataggio automatico Cloud disattivato (Auto-save OFF)",
+      "info"
+    );
+  };
+
+  // Automatically save model state to Firestore and local storage whenever model changes
+  useEffect(() => {
+    if (!autoSave) return;
+    if (!model.name || !model.name.trim()) return;
+
+    // Only save if actual contents changed
+    const currentJson = JSON.stringify(model);
+    if (currentJson === lastFirestoreSavedJsonRef.current) {
+      return;
+    }
+
+    setAutoSaveStatus("saving");
+
+    const timer = setTimeout(async () => {
+      try {
+        let docId = model.id;
+        if (!docId || docId.startsWith("temp_") || !isNaN(Number(docId)) || ["1", "2", "3"].includes(docId)) {
+          docId = "model_" + Date.now().toString();
+        }
+
+        const currentRootId = model.rootId || docId;
+        const currentVersion = model.version || 1;
+
+        const targetModel: ModelData = {
+          ...model,
+          id: docId,
+          rootId: currentRootId,
+          version: currentVersion,
+          updatedAt: new Date().toISOString(),
+          createdAt: model.createdAt || new Date().toISOString(),
+        };
+
+        // 1. Immediately update local state and localStorage
+        setLocalProfiles((prev) => {
+          const idx = prev.findIndex((p) => p.id === docId);
+          const updated = idx >= 0
+            ? prev.map((p, i) => (i === idx ? targetModel : p))
+            : [targetModel, ...prev];
+          try {
+            localStorage.setItem("fashion_catalog_profiles", JSON.stringify(updated));
+          } catch (err) {}
+          return updated;
+        });
+
+        lastFirestoreSavedJsonRef.current = JSON.stringify(targetModel);
+        lastSavedModelRef.current = targetModel;
+        setLastAutoSavedAt(new Date());
+
+        // Sync model ID/rootId if generated/normalized
+        if (docId !== model.id || currentRootId !== model.rootId) {
+          setModel((prev) => ({
+            ...prev,
+            id: docId,
+            rootId: currentRootId,
+            version: currentVersion,
+          }));
+        }
+
+        // 2. Persist to Firestore
+        try {
+          await setDoc(doc(db, "models", docId), targetModel);
+          setAutoSaveStatus("saved");
+          setCloudQuotaExceeded(false);
+        } catch (e: any) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (msg.includes("Quota") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("resource-exhausted")) {
+            setCloudQuotaExceeded(true);
+          }
+          // Mark as saved locally
+          setAutoSaveStatus("saved");
+        }
+      } catch (e) {
+        console.error("Auto-save failed:", e);
+        setAutoSaveStatus("error");
+      }
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [model, autoSave]);
+
+  // Save profile to Firestore Cloud Database & Local Storage (updates active version)
   const handleSaveLocal = async () => {
     if (!model.name.trim()) {
       showNotification("Assegna almeno un Nome per salvare il profilo nel database!", "error");
@@ -2425,54 +3192,191 @@ export default function App() {
       docId = "model_" + Date.now().toString();
     }
 
+    const currentRootId = model.rootId || docId;
+    const currentVersion = model.version || 1;
+
     const targetModel: ModelData = {
       ...model,
-      id: docId
+      id: docId,
+      rootId: currentRootId,
+      version: currentVersion,
+      updatedAt: new Date().toISOString(),
+      createdAt: model.createdAt || new Date().toISOString(),
     };
 
+    // 1. Immediately update local state and localStorage cache (Guarantees local resilience)
+    setLocalProfiles((prev) => {
+      const idx = prev.findIndex((p) => p.id === docId);
+      const updated = idx >= 0
+        ? prev.map((p, i) => (i === idx ? targetModel : p))
+        : [targetModel, ...prev];
+      try {
+        localStorage.setItem("fashion_catalog_profiles", JSON.stringify(updated));
+      } catch (err) {
+        console.warn("Could not cache updated profiles in localStorage", err);
+      }
+      return updated;
+    });
+
+    // Keep active model, committed history and autoSave in sync
+    lastFirestoreSavedJsonRef.current = JSON.stringify(targetModel);
+    setAutoSaveStatus("saved");
+    setLastAutoSavedAt(new Date());
+    commitHistoryImmediately(targetModel);
+    setModel(targetModel);
+
+    // 2. Persist to Firestore Cloud
     try {
-      showNotification(`Salvataggio del profilo di ${targetModel.name} nel Cloud...`, "info");
-      
-      // Save directly to Firestore models collection
       await setDoc(doc(db, "models", docId), targetModel);
-      
-      // Keep state and history perfectly synchronized
-      commitHistoryImmediately(targetModel);
-      setModel(targetModel);
-      
-      showNotification(`Profilo di ${targetModel.name} salvato nel cloud database Firestore!`, "success");
-    } catch (e) {
-      showNotification("Errore di scrittura nel Database Cloud. Verifica la connessione.", "error");
-      handleFirestoreError(e, OperationType.WRITE, `models/${docId}`);
+      setCloudQuotaExceeded(false);
+      showNotification(`Profilo di ${targetModel.name} (v${currentVersion}) aggiornato nel database!`, "success");
+    } catch (e: any) {
+      console.warn("Firestore save warning:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("Quota") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("resource-exhausted")) {
+        setCloudQuotaExceeded(true);
+        showNotification(`Profilo di ${targetModel.name} salvato in memoria locale sicura (Quota Cloud giornaliera raggiunta).`, "info");
+      } else {
+        showNotification(`Profilo di ${targetModel.name} salvato in locale. Connessione Cloud non disponibile.`, "info");
+        try {
+          handleFirestoreError(e, OperationType.WRITE, `models/${docId}`);
+        } catch (err) {
+          console.error(err);
+        }
+      }
     }
   };
 
-  // Delete profile from Firestore Cloud Database
-  const handleDeleteLocal = async (idToDelete: string) => {
+  // Save as new version in Firestore Cloud Database & Local Storage (does not overwrite existing versions)
+  const handleSaveNewVersion = async (customNote?: string) => {
+    if (!model.name.trim()) {
+      showNotification("Assegna almeno un Nome per creare una nuova versione!", "error");
+      return;
+    }
+
+    const currentName = model.name.trim();
+    // Determine the rootId for this model family
+    let baseRootId = model.rootId;
+    if (!baseRootId) {
+      const existingWithSameName = localProfiles.find(p => p.name.trim().toLowerCase() === currentName.toLowerCase() && p.rootId);
+      baseRootId = existingWithSameName?.rootId || (model.id && !model.id.startsWith("temp_") ? model.id : "root_" + Date.now().toString());
+    }
+
+    // Find all versions of this model (by rootId or exact name match)
+    const familyVersions = localProfiles.filter(p => 
+      (p.rootId && p.rootId === baseRootId) ||
+      (!p.rootId && p.id === baseRootId) ||
+      (p.name.trim().toLowerCase() === currentName.toLowerCase())
+    );
+
+    // Determine highest existing version number
+    const maxVersion = familyVersions.reduce((max, p) => {
+      const v = typeof p.version === "number" ? p.version : 1;
+      return v > max ? v : max;
+    }, model.version || 1);
+
+    const nextVersion = maxVersion + 1;
+    const newDocId = "model_" + Date.now().toString();
+    const finalNote = customNote !== undefined ? customNote.trim() : (model.versionNote?.trim() || "");
+
+    const newVersionModel: ModelData = {
+      ...model,
+      id: newDocId,
+      rootId: baseRootId,
+      version: nextVersion,
+      versionNote: finalNote,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // 1. Immediately update local state and localStorage cache
+    setLocalProfiles((prev) => {
+      const updated = [newVersionModel, ...prev];
+      try {
+        localStorage.setItem("fashion_catalog_profiles", JSON.stringify(updated));
+      } catch (err) {
+        console.warn("Could not cache updated profiles in localStorage", err);
+      }
+      return updated;
+    });
+
+    lastFirestoreSavedJsonRef.current = JSON.stringify(newVersionModel);
+    setAutoSaveStatus("saved");
+    setLastAutoSavedAt(new Date());
+    commitHistoryImmediately(newVersionModel);
+    setModel(newVersionModel);
+
+    // 2. Persist to Firestore Cloud
     try {
-      showNotification("Eliminazione in corso...", "info");
-      
-      // Delete document from Firestore models collection
-      await deleteDoc(doc(db, "models", idToDelete));
-      
-      // Also remove from selected IDs list
-      setSelectedModelIds((prev) => prev.filter((id) => id !== idToDelete));
-      showNotification("Profilo rimosso con successo dal database Cloud", "success");
-      
-      // Switch active model if we deleted the current active one
-      const filtered = localProfiles.filter(p => p.id !== idToDelete);
-      if (model.id === idToDelete) {
-        if (filtered.length > 0) {
-          commitHistoryImmediately(filtered[0]);
-          setModel(filtered[0]);
-        } else if (SAMPLE_MODELS.length > 0) {
-          commitHistoryImmediately(SAMPLE_MODELS[0]);
-          setModel(SAMPLE_MODELS[0]);
+      await setDoc(doc(db, "models", newDocId), newVersionModel);
+
+      // Backfill rootId and version to the previous model in database if missing
+      if (model.id && (!model.rootId || !model.version)) {
+        try {
+          await setDoc(doc(db, "models", model.id), {
+            ...model,
+            rootId: baseRootId,
+            version: model.version || 1,
+            updatedAt: model.updatedAt || new Date().toISOString(),
+          }, { merge: true });
+        } catch (err) {
+          console.warn("Could not backfill rootId to previous document", err);
         }
       }
-    } catch (e) {
-      showNotification("Impossibile eliminare il profilo dal cloud database.", "error");
-      handleFirestoreError(e, OperationType.DELETE, `models/${idToDelete}`);
+
+      setCloudQuotaExceeded(false);
+      showNotification(`Nuova versione v${nextVersion} di ${newVersionModel.name} salvata con successo!`, "success");
+    } catch (e: any) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("Quota") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("resource-exhausted")) {
+        setCloudQuotaExceeded(true);
+        showNotification(`Nuova versione v${nextVersion} di ${newVersionModel.name} salvata in locale (Quota Cloud giornaliera raggiunta).`, "info");
+      } else {
+        showNotification(`Nuova versione v${nextVersion} di ${newVersionModel.name} salvata in locale.`, "info");
+        try {
+          handleFirestoreError(e, OperationType.WRITE, `models/${newDocId}`);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+  };
+
+  // Delete profile from Firestore Cloud Database & Local Storage
+  const handleDeleteLocal = async (idToDelete: string) => {
+    // 1. Immediately update local state and localStorage cache
+    setLocalProfiles((prev) => {
+      const filtered = prev.filter((p) => p.id !== idToDelete);
+      try {
+        localStorage.setItem("fashion_catalog_profiles", JSON.stringify(filtered));
+      } catch (err) {
+        console.warn("Could not cache updated profiles in localStorage", err);
+      }
+      return filtered;
+    });
+
+    // Also remove from selected IDs list
+    setSelectedModelIds((prev) => prev.filter((id) => id !== idToDelete));
+
+    // Switch active model if we deleted the current active one
+    const remaining = localProfiles.filter(p => p.id !== idToDelete);
+    if (model.id === idToDelete) {
+      if (remaining.length > 0) {
+        commitHistoryImmediately(remaining[0]);
+        setModel(remaining[0]);
+      } else if (SAMPLE_MODELS.length > 0) {
+        commitHistoryImmediately(SAMPLE_MODELS[0]);
+        setModel(SAMPLE_MODELS[0]);
+      }
+    }
+
+    showNotification("Profilo rimosso dall'archivio", "success");
+
+    // 2. Delete from Firestore Cloud Database
+    try {
+      await deleteDoc(doc(db, "models", idToDelete));
+    } catch (e: any) {
+      console.warn("Firestore delete warning:", e);
     }
   };
 
@@ -2490,17 +3394,331 @@ export default function App() {
       name: newName,
     };
 
+    // 1. Immediately update local state and localStorage cache
+    setLocalProfiles((prev) => {
+      const updated = [duplicatedModel, ...prev];
+      try {
+        localStorage.setItem("fashion_catalog_profiles", JSON.stringify(updated));
+      } catch (err) {
+        console.warn("Could not cache updated profiles in localStorage", err);
+      }
+      return updated;
+    });
+
+    // Update local history and current states
+    commitHistoryImmediately(duplicatedModel);
+    setModel(duplicatedModel);
+    showNotification(`Copia creata come "${duplicatedModel.name}"!`, "success");
+
+    // 2. Persist to Firestore Cloud Database
     try {
-      showNotification(`Duplicazione di ${sourceModel.name} in corso...`, "info");
       await setDoc(doc(db, "models", newId), duplicatedModel);
-      
-      // Update local history and current states
-      commitHistoryImmediately(duplicatedModel);
-      setModel(duplicatedModel);
-      showNotification(`Copia creata come "${duplicatedModel.name}"!`, "success");
+    } catch (e: any) {
+      console.warn("Firestore duplicate warning:", e);
+    }
+  };
+
+  // Batch rename profiles in local database and Firestore Cloud (e.g. seasonal tag organization)
+  const handleBatchRenameProfiles = async (options: BatchRenameOptions) => {
+    const { profileIds, tag, format, stripPrevious } = options;
+    if (!profileIds || profileIds.length === 0) {
+      showNotification("Seleziona almeno un profilo da rinominare!", "error");
+      return;
+    }
+
+    const cleanTag = tag.trim().toUpperCase();
+
+    const computeFormattedName = (currentName: string) => {
+      let base = currentName.trim();
+      if (stripPrevious) {
+        // Strip previous seasonal tags like [SS25], [FW25], [2026-09] or prefixes like SS25 - or 2026-09 -
+        base = base.replace(/^(\[[^\]]+\]\s*|\b(SS|FW|AW|RESORT|CRUISE|SEASON|CASTING)\s*\d{2,4}\s*[-_:]?\s*|\b\d{4}[-_/]\d{2}([-_/]\d{2})?\s*[-_:]?\s*)/i, "").trim();
+        base = base.replace(/^[-_:]\s*/, "").trim();
+      }
+      if (!base) base = "MODELLO";
+
+      if (!cleanTag) return base;
+
+      if (format === "bracket") {
+        return `[${cleanTag}] ${base}`;
+      } else if (format === "hyphen") {
+        return `${cleanTag} - ${base}`;
+      } else if (format === "underscore") {
+        return `${cleanTag}_${base}`;
+      } else {
+        return `${cleanTag} ${base}`;
+      }
+    };
+
+    try {
+      showNotification(`Ridenominazione di ${profileIds.length} profili in corso...`, "info");
+
+      const updatePromises: Promise<void>[] = [];
+      let updatedActiveModel: ModelData | null = null;
+      let renameCount = 0;
+
+      const newLocalProfiles = localProfiles.map((p) => {
+        if (profileIds.includes(p.id)) {
+          const newName = computeFormattedName(p.name);
+          renameCount++;
+          const updated: ModelData = {
+            ...p,
+            name: newName,
+            updatedAt: new Date().toISOString()
+          };
+          updatePromises.push(setDoc(doc(db, "models", p.id), updated));
+
+          if (model.id === p.id) {
+            updatedActiveModel = updated;
+          }
+          return updated;
+        }
+        return p;
+      });
+
+      // Write all to Firestore in parallel
+      await Promise.all(updatePromises);
+
+      // Update local state and localStorage cache
+      setLocalProfiles(newLocalProfiles);
+      try {
+        localStorage.setItem("fashion_catalog_profiles", JSON.stringify(newLocalProfiles));
+      } catch (err) {
+        console.warn("Could not cache updated profiles in localStorage", err);
+      }
+
+      // If the currently open active model was renamed, sync state and history
+      if (updatedActiveModel) {
+        commitHistoryImmediately(updatedActiveModel);
+        setModel(updatedActiveModel);
+        lastFirestoreSavedJsonRef.current = JSON.stringify(updatedActiveModel);
+        lastSavedModelRef.current = updatedActiveModel;
+      }
+
+      if (cleanTag) {
+        showNotification(`Organizzazione completata: ${renameCount} profili rinominati con prefisso "${cleanTag}"!`, "success");
+      } else {
+        showNotification(`Prefissi rimossi: ${renameCount} profili ripristinati ai nomi originali puliti!`, "success");
+      }
     } catch (e) {
-      showNotification("Errore durate la duplicazione del profilo nel Cloud.", "error");
-      handleFirestoreError(e, OperationType.WRITE, `models/${newId}`);
+      console.error("Batch rename error:", e);
+      showNotification("Errore durante la ridenominazione dei profili nel Database.", "error");
+      handleFirestoreError(e, OperationType.WRITE, "models/batch_rename");
+    }
+  };
+
+  // Import cards (single card or catalog package) from JSON, CSV, or external files
+  const handleImportCards = async (
+    importedCards: ModelData[],
+    targetMode: CardImportTarget,
+    conflictMode: ConflictResolution
+  ) => {
+    if (!importedCards || importedCards.length === 0) {
+      showNotification("Nessuna card selezionata per l'importazione!", "error");
+      return;
+    }
+
+    try {
+      showNotification(`Importazione di ${importedCards.length} ${importedCards.length === 1 ? "card" : "card"} in corso...`, "info");
+
+      const resolvedCards: ModelData[] = [];
+      const firestoreWrites: Promise<void>[] = [];
+
+      for (let i = 0; i < importedCards.length; i++) {
+        const incoming = importedCards[i];
+        const trimmedName = incoming.name.trim();
+
+        // Check if any existing model in localProfiles matches this name
+        const existingSameName = localProfiles.filter(
+          (p) => p.name.trim().toLowerCase() === trimmedName.toLowerCase()
+        );
+
+        let finalDocId = incoming.id;
+        let finalRootId = incoming.rootId;
+        let finalVersion = incoming.version || 1;
+        let finalName = trimmedName;
+
+        if (existingSameName.length > 0) {
+          if (conflictMode === "new_version") {
+            // Find base rootId and highest version among existing profiles
+            const baseRootId = existingSameName[0].rootId || existingSameName[0].id;
+            const highestVersion = existingSameName.reduce((max, p) => {
+              const v = typeof p.version === "number" ? p.version : 1;
+              return v > max ? v : max;
+            }, 1);
+
+            finalDocId = `model_${Date.now()}_${i}`;
+            finalRootId = baseRootId;
+            finalVersion = highestVersion + 1;
+          } else if (conflictMode === "new_model") {
+            // Create a completely distinct model profile
+            finalDocId = `model_${Date.now()}_${i}`;
+            finalRootId = finalDocId;
+            finalVersion = 1;
+            finalName = `${trimmedName} (Importata)`;
+          } else {
+            // Overwrite existing active version document
+            finalDocId = existingSameName[0].id;
+            finalRootId = existingSameName[0].rootId || finalDocId;
+            finalVersion = existingSameName[0].version || 1;
+          }
+        } else {
+          // No conflict
+          if (!finalDocId || finalDocId.startsWith("temp_") || !isNaN(Number(finalDocId)) || ["1", "2", "3"].includes(finalDocId)) {
+            finalDocId = `model_${Date.now()}_${i}`;
+          }
+          finalRootId = finalRootId || finalDocId;
+          finalVersion = finalVersion || 1;
+        }
+
+        const resolvedCard: ModelData = {
+          ...incoming,
+          id: finalDocId,
+          rootId: finalRootId,
+          version: finalVersion,
+          name: finalName,
+          updatedAt: new Date().toISOString(),
+          createdAt: incoming.createdAt || new Date().toISOString(),
+        };
+
+        resolvedCards.push(resolvedCard);
+
+        if (targetMode === "database" || targetMode === "both") {
+          firestoreWrites.push(setDoc(doc(db, "models", finalDocId), resolvedCard));
+        }
+      }
+
+      // 1. Immediately merge with localProfiles in state and cache (guaranteed local availability)
+      setLocalProfiles((prev) => {
+        const resolvedIds = new Set(resolvedCards.map((c) => c.id));
+        const remaining = prev.filter((p) => !resolvedIds.has(p.id));
+        const updated = [...resolvedCards, ...remaining];
+        try {
+          localStorage.setItem("fashion_catalog_profiles", JSON.stringify(updated));
+        } catch (e) {
+          console.warn("Could not cache updated profiles in localStorage", e);
+        }
+        return updated;
+      });
+
+      // Synchronize imported catalog tags
+      const importedCatalogIds = resolvedCards.filter((c) => c.inCatalog === true).map((c) => c.id);
+      if (importedCatalogIds.length > 0) {
+        setSelectedModelIds((prev) => {
+          const combined = Array.from(new Set([...prev, ...importedCatalogIds]));
+          try {
+            localStorage.setItem("fashion_catalog_selected_ids", JSON.stringify(combined));
+            localStorage.setItem("fashion_catalog_selected_init", "true");
+          } catch (e) {}
+          return combined;
+        });
+      }
+
+      // 2. If target is editor or both, load the first card into the active editor
+      if (targetMode === "editor" || targetMode === "both") {
+        const firstCard = resolvedCards[0];
+        commitHistoryImmediately(firstCard);
+        setModel(firstCard);
+        lastFirestoreSavedJsonRef.current = JSON.stringify(firstCard);
+        lastSavedModelRef.current = firstCard;
+        setAutoSaveStatus("saved");
+        setLastAutoSavedAt(new Date());
+      }
+
+      // 3. Persist to Firestore Cloud in background
+      if (firestoreWrites.length > 0) {
+        try {
+          await Promise.all(firestoreWrites);
+          setCloudQuotaExceeded(false);
+        } catch (err: any) {
+          console.warn("Firestore sync during card import warning:", err);
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("Quota") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("resource-exhausted")) {
+            setCloudQuotaExceeded(true);
+          }
+        }
+      }
+
+      showNotification(
+        `Importazione completata: ${resolvedCards.length} ${resolvedCards.length === 1 ? "card caricata" : "card caricate"} con successo!`,
+        "success"
+      );
+    } catch (e: any) {
+      console.error("Card import error:", e);
+      showNotification("Errore durante l'elaborazione dell'importazione delle card.", "error");
+    }
+  };
+
+  // Export active card as a portable JSON file
+  const handleExportActiveCardJson = () => {
+    try {
+      const cardExport = {
+        formatVersion: "1.0",
+        exportedAt: new Date().toISOString(),
+        generator: "Cosmopolitan Agency Model Studio",
+        agency: {
+          name: agency.name,
+          city: agency.city,
+          web: agency.web,
+          phone: agency.phone,
+          email: agency.email,
+        },
+        card: {
+          ...model,
+          inCatalog: selectedModelIds.includes(model.id),
+        },
+      };
+
+      const safeName = (model.name || "modella").trim().replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+      const fileName = `card_${safeName}_v${model.version || 1}.json`;
+      const blob = new Blob([JSON.stringify(cardExport, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showNotification(`Card di "${model.name || "Modella"}" esportata in formato JSON!`, "success");
+    } catch (e) {
+      console.error("Card JSON export failed:", e);
+      showNotification("Impossibile esportare la card in JSON.", "error");
+    }
+  };
+
+  // Export full catalog backup as a JSON package
+  const handleExportCatalogBackupJson = () => {
+    try {
+      const catalogExport = {
+        formatVersion: "1.0",
+        exportedAt: new Date().toISOString(),
+        generator: "Cosmopolitan Agency Model Studio",
+        agency,
+        totalCards: localProfiles.length,
+        cards: localProfiles.map((p) => ({
+          ...p,
+          inCatalog: selectedModelIds.includes(p.id),
+        })),
+      };
+
+      const dateStr = new Date().toISOString().split("T")[0];
+      const fileName = `backup_cards_catalogo_${dateStr}.json`;
+      const blob = new Blob([JSON.stringify(catalogExport, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showNotification(`Backup di ${localProfiles.length} card esportato in JSON!`, "success");
+    } catch (e) {
+      console.error("Catalog JSON backup failed:", e);
+      showNotification("Impossibile esportare il backup del catalogo in JSON.", "error");
     }
   };
 
@@ -3077,7 +4295,12 @@ export default function App() {
         format: "a4"
       });
 
-      await disegnaModellaSuPDF(pdf, resolvedDati, 0, 1, socialScelti, agency, themeColor);
+      await disegnaModellaSuPDF(pdf, resolvedDati, 0, 1, socialScelti, agency, themeColor, fontFamily, {
+        enabled: enableWatermark,
+        text: watermarkText,
+        opacity: watermarkOpacity,
+        fontSize: watermarkFontSize,
+      });
 
       let finalPdf = pdf;
       if (flattenPdfOption) {
@@ -3102,6 +4325,48 @@ export default function App() {
     gestisciDownloadComposit();
   };
 
+  // Helper to generate a PDF Blob for direct native sharing (AirDrop, WhatsApp, Mail)
+  const handleGeneratePdfForShare = async (): Promise<{ blob: Blob; fileName: string } | null> => {
+    try {
+      const socialScelti: { url: string; base64: string }[] = [];
+      if (agency) {
+        const proms: Promise<void>[] = [];
+        if (agency.instagram) proms.push(caricaIconaSvg(SVG_INSTAGRAM).then(b64 => { if (b64) socialScelti.push({ url: agency.instagram, base64: b64 }); }));
+        if (agency.whatsapp) proms.push(caricaIconaSvg(SVG_WHATSAPP).then(b64 => { if (b64) socialScelti.push({ url: agency.whatsapp, base64: b64 }); }));
+        if (agency.facebook) proms.push(caricaIconaSvg(SVG_FACEBOOK).then(b64 => { if (b64) socialScelti.push({ url: agency.facebook, base64: b64 }); }));
+        if (agency.threads) proms.push(caricaIconaSvg(SVG_THREADS).then(b64 => { if (b64) socialScelti.push({ url: agency.threads, base64: b64 }); }));
+        if (agency.pinterest) proms.push(caricaIconaSvg(SVG_PINTEREST).then(b64 => { if (b64) socialScelti.push({ url: agency.pinterest, base64: b64 }); }));
+        await Promise.all(proms);
+      }
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+      });
+
+      await disegnaModellaSuPDF(pdf, model, 0, 1, socialScelti, agency, themeColor, fontFamily, {
+        enabled: enableWatermark,
+        text: watermarkText,
+        opacity: watermarkOpacity,
+        fontSize: watermarkFontSize,
+      });
+
+      let finalPdf = pdf;
+      if (flattenPdfOption) {
+        finalPdf = await flattenPdfDocument(pdf);
+      }
+
+      const safeName = (model.name || "MODELLO").trim().replace(/\s+/g, "_");
+      const fileName = `Scheda_Composit_${safeName}.pdf`;
+      const blob = finalPdf.output("blob");
+      return { blob, fileName };
+    } catch (e) {
+      console.error("Errore generazione PDF per share:", e);
+      return null;
+    }
+  };
+
   // Helper to determine cover image src (uploaded base64 or fallback to first model's imageCenter)
   const getCoverImageSrc = (): string => {
     if (coverImageFile) {
@@ -3124,6 +4389,63 @@ export default function App() {
     return "";
   };
 
+  // Helper to generate the complete Book / Catalogo PDF Blob for direct native sharing
+  const handleGenerateBookPdfForShare = async (): Promise<{ blob: Blob; fileName: string } | null> => {
+    try {
+      const targetProfiles = localProfiles.length > 0 ? localProfiles : SAMPLE_MODELS;
+      const selectedModels = selectedModelIds.length > 0
+        ? targetProfiles.filter(p => selectedModelIds.includes(p.id))
+        : targetProfiles;
+
+      if (selectedModels.length === 0) {
+        showNotification("Nessun profilo disponibile per il Book Catalogo.", "error");
+        return null;
+      }
+
+      // Sort models alphabetically for consistent luxury catalog presentation
+      const sortedModels = [...selectedModels].sort((a, b) => 
+        (a.name || "").trim().localeCompare((b.name || "").trim(), "it", { sensitivity: "base", numeric: true })
+      );
+
+      const res = await gestisciDownloadCatalogo(
+        sortedModels,
+        agency,
+        () => {},
+        () => {},
+        {
+          includeCover,
+          includeBackCover,
+          includeDynamicIndex,
+          indexTitleText,
+          indexSubtitleText,
+          coverTitleText,
+          coverSubtitleText,
+          coverDescText,
+          coverImageFile: getCoverImageSrc(),
+          backCoverImageFile,
+          backCoverText,
+          backCoverCitiesText,
+          backCoverFooterText,
+          fontFamily,
+          themeColor,
+          flattenPdf: flattenPdfOption,
+          returnBlob: true,
+          watermarkOptions: {
+            enabled: enableWatermark,
+            text: watermarkText,
+            opacity: watermarkOpacity,
+            fontSize: watermarkFontSize,
+          },
+        }
+      );
+
+      return res || null;
+    } catch (e) {
+      console.error("Errore generazione Catalogo PDF per share:", e);
+      return null;
+    }
+  };
+
   // PDF Export logic for multiple boards together
   const handleExportMultiPDF = async (paperSize: "A4" | "A3") => {
     if (selectedModelIds.length === 0) {
@@ -3139,6 +4461,7 @@ export default function App() {
       console.log(`[Multi-PDF Export] Inizio esportazione per ${selectedModelIds.length} schede con gestisciDownloadCatalogo...`);
       const targetProfiles = localProfiles.length > 0 ? localProfiles : SAMPLE_MODELS;
       const selectedModels = targetProfiles.filter(p => selectedModelIds.includes(p.id));
+      selectedModels.sort((a, b) => (a.name || "").trim().localeCompare((b.name || "").trim(), "it", { sensitivity: "base", numeric: true }));
 
       await gestisciDownloadCatalogo(
         selectedModels,
@@ -3148,6 +4471,9 @@ export default function App() {
         {
           includeCover,
           includeBackCover,
+          includeDynamicIndex,
+          indexTitleText,
+          indexSubtitleText,
           coverTitleText,
           coverSubtitleText,
           coverDescText,
@@ -3158,7 +4484,13 @@ export default function App() {
           backCoverFooterText,
           fontFamily,
           themeColor,
-          flattenPdf: flattenPdfOption
+          flattenPdf: flattenPdfOption,
+          watermarkOptions: {
+            enabled: enableWatermark,
+            text: watermarkText,
+            opacity: watermarkOpacity,
+            fontSize: watermarkFontSize,
+          },
         }
       );
 
@@ -3346,6 +4678,15 @@ export default function App() {
         {/* Toggle Form and Studio Badge Section */}
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setShowImportCardModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-xl transition-all shadow-xs cursor-pointer"
+            title="Importa card modella/o da file JSON, catalogo, CSV o foto"
+          >
+            <FolderInput size={13} />
+            <span>Importa Card</span>
+          </button>
+
+          <button
             onClick={() => {
               setHasEntered(false);
               showNotification("Apertura presentazione fashion...", "info");
@@ -3378,6 +4719,49 @@ export default function App() {
             <span>{showForm ? "Nascondi Editor" : "Mostra Editor"}</span>
           </button>
 
+          <button
+            onClick={() => handleOpenLookbook()}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-slate-950 hover:bg-slate-800 rounded-xl transition-all shadow-xs border border-slate-800 cursor-pointer"
+            title="Apri la Modalità Lookbook / Presentazione a Schermo Intero per Clienti (iPad, Mac, Display)"
+          >
+            <BookOpen size={13} className="text-amber-400" />
+            <span className="hidden sm:inline">Lookbook Clienti</span>
+            <span className="sm:hidden">Lookbook</span>
+          </button>
+
+          {/* Auto-save & Cloud status in header */}
+          <div 
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all select-none ${
+              cloudQuotaExceeded
+                ? "bg-amber-50 border-amber-200 text-amber-800"
+                : autoSave 
+                  ? "bg-emerald-50/90 border-emerald-200/90 text-emerald-800" 
+                  : "bg-slate-50 border-slate-200 text-slate-500"
+            }`}
+            title={
+              cloudQuotaExceeded
+                ? "Quota Cloud gratuita raggiunta (50.000 letture/giorno). Tutte le card sono memorizzate in locale sul tuo browser in totale sicurezza."
+                : autoSave 
+                  ? "Salvataggio automatico Cloud attivo su Firestore" 
+                  : "Salvataggio automatico disattivato"
+            }
+          >
+            <Cloud size={13} className={
+              cloudQuotaExceeded 
+                ? "text-amber-600" 
+                : autoSave 
+                  ? (autoSaveStatus === "saving" ? "text-amber-500 animate-pulse" : "text-emerald-600") 
+                  : "text-slate-400"
+            } />
+            <span>
+              {cloudQuotaExceeded
+                ? "Archivio Locale (Quota Cloud)"
+                : autoSave 
+                  ? (autoSaveStatus === "saving" ? "Salvataggio Cloud..." : "Auto-save ON") 
+                  : "Auto-save OFF"}
+            </span>
+          </div>
+
           <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 font-mono select-none">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>Studio Mode</span>
@@ -3386,11 +4770,100 @@ export default function App() {
       </header>
 
       {/* Main Grid View */}
-      <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-4 md:p-6 pb-28 lg:pb-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
+        {/* Mobile View Toggle Segmented Control (Apple iOS style) */}
+        <div className="lg:hidden col-span-1 flex flex-col items-center justify-center gap-2.5 w-full -mb-1">
+          <div className="inline-flex p-1 bg-slate-200/90 backdrop-blur-md rounded-2xl w-full max-w-sm shadow-inner border border-slate-300/50 select-none">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("light");
+                setMobileActiveTab("preview");
+              }}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-action-manipulation ${
+                mobileActiveTab === "preview"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Eye size={13} className={mobileActiveTab === "preview" ? "text-indigo-600" : "text-slate-400"} />
+              <span>Vista Card</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("light");
+                setMobileActiveTab("editor");
+              }}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-action-manipulation ${
+                mobileActiveTab === "editor"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Sliders size={13} className={mobileActiveTab === "editor" ? "text-indigo-600" : "text-slate-400"} />
+              <span>Modifica Dati</span>
+            </button>
+          </div>
+
+          {/* Quick Model Carousel on Mobile in Preview mode for instant 1-tap model switching */}
+          {mobileActiveTab === "preview" && (localProfiles.length > 0 || SAMPLE_MODELS.length > 0) && (
+            <div className="w-full flex items-center gap-1.5 overflow-x-auto py-1 px-1 no-scrollbar select-none">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 pl-1">
+                Modelle:
+              </span>
+              {(localProfiles.length > 0 ? localProfiles : SAMPLE_MODELS).map((p) => {
+                const isSelected = p.id === model.id || p.name === model.name;
+                const photoSrc = p.imageLeft || p.imageCenter || p.imageRight || (p.images && p.images[0]);
+                const firstName = (p.name || "Modella").split(" ")[0];
+                return (
+                  <button
+                    key={p.id || p.name}
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      handleSelectPreset(p);
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-all border cursor-pointer touch-action-manipulation active:scale-95 ${
+                      isSelected
+                        ? "bg-slate-900 text-white border-slate-900 shadow-xs ring-2 ring-indigo-500/60"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-3xs"
+                    }`}
+                  >
+                    {photoSrc ? (
+                      <img src={photoSrc} alt={firstName} className="w-4 h-4 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 text-[9px] flex items-center justify-center font-bold">
+                        {firstName.charAt(0)}
+                      </span>
+                    )}
+                    <span className="truncate max-w-[110px]">{firstName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Left Column: Form Editor (5 Cols on Large View) */}
         {showForm && (
-          <div className="lg:col-span-5 h-full">
+          <div id="mobile-form-editor-section" className={`lg:col-span-5 h-full ${mobileActiveTab === "editor" ? "block" : "hidden lg:block"}`}>
+            {/* Quick Exit back to Preview on Mobile */}
+            <div className="lg:hidden mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic("light");
+                  setMobileActiveTab("preview");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="w-full py-2.5 px-4 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-800 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-3xs active:scale-98 transition-all cursor-pointer"
+              >
+                <Eye size={14} className="text-indigo-600" />
+                <span>← Torna alla Vista Card ({model.name || "Modella"})</span>
+              </button>
+            </div>
             <ModelForm
               model={model}
               onChangeModel={setModelWithHistory}
@@ -3407,6 +4880,7 @@ export default function App() {
               onClearForm={handleClearForm}
               localProfiles={localProfiles}
               onSaveLocal={handleSaveLocal}
+              onSaveNewVersion={handleSaveNewVersion}
               onDeleteLocal={handleDeleteLocal}
               onDuplicateLocal={handleDuplicateLocal}
               canUndo={past.length > 0}
@@ -3415,12 +4889,27 @@ export default function App() {
               onRedo={handleRedo}
               showMultiExport={showMultiExport}
               onToggleMultiExport={setShowMultiExport}
+              showGridOverlay={showGridOverlay}
+              onToggleGridOverlay={setShowGridOverlay}
+              autoSave={autoSave}
+              onToggleAutoSave={handleToggleAutoSave}
+              autoSaveStatus={autoSaveStatus}
+              lastAutoSavedAt={lastAutoSavedAt}
+              onBatchRenameProfiles={handleBatchRenameProfiles}
+              onOpenImportCardsModal={() => setShowImportCardModal(true)}
+              onExportActiveCardJson={handleExportActiveCardJson}
+              onExportCatalogBackupJson={handleExportCatalogBackupJson}
+              cloudQuotaExceeded={cloudQuotaExceeded}
+              selectedModelIds={selectedModelIds}
+              onToggleSelectModelId={handleToggleSelectModelId}
+              onSelectAllModelIds={handleSelectAllModelIds}
+              onDeselectAllModelIds={handleDeselectAllModelIds}
             />
           </div>
         )}
 
         {/* Right Column: Dynamic Preview Panel (7 Cols on Large View, 12 if screen is expanded) */}
-        <div className={`${showForm ? "lg:col-span-7" : "lg:col-span-12"} flex flex-col items-center gap-6 transition-all duration-300`}>
+        <div id="mobile-card-preview-section" className={`${showForm ? "lg:col-span-7" : "lg:col-span-12"} flex flex-col items-center gap-6 transition-all duration-300 w-full ${mobileActiveTab === "preview" ? "flex" : "hidden lg:flex"}`}>
           
           {/* Conditional warning if rendered within an iframe, providing direct pop-out access to guarantee successful downloads on iOS/Safari/Chrome */}
           {typeof window !== "undefined" && window.self !== window.top && showIframeWarning && (
@@ -3434,13 +4923,15 @@ export default function App() {
                     Soluzione infallibile: Clicca sul pulsante qui sotto per aprire il software a schermo intero in una nuova pagina web sicura, dove l'esportazione e tutti i download funzionano perfettamente al 100%!
                   </strong>
                 </p>
-                <button
-                  onClick={() => window.open(window.location.href, "_blank")}
+                <a
+                  href={typeof window !== "undefined" ? window.location.href : "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="mt-2 inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold py-2 px-4 rounded-xl shadow-xs transition-all pointer-events-auto cursor-pointer"
                 >
                   <ExternalLink size={12} />
                   Apri in Nuova Scheda per Scaricare PDF
-                </button>
+                </a>
               </div>
             </div>
           )}
@@ -3465,12 +4956,44 @@ export default function App() {
                   Scarica PDF
                 </button>
                 <button
+                  onClick={() => setShowShareModal(true)}
+                  className="flex-1 sm:flex-initial bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white text-xs font-bold py-2 px-3.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  title="Condividi direttamente la scheda tramite AirDrop, WhatsApp, Email o Condivisione di Sistema"
+                >
+                  <Share2 size={13} />
+                  <span>Condividi</span>
+                </button>
+                <button
+                  onClick={() => handleOpenLookbook()}
+                  className="flex-1 sm:flex-initial bg-slate-900 hover:bg-slate-800 text-amber-300 text-xs font-bold py-2 px-3.5 rounded-xl shadow-xs border border-slate-700 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  title="Presentazione cliente Lookbook a schermo intero senza distrazioni (iPad / Mac / Display)"
+                >
+                  <BookOpen size={13} />
+                  <span>Presenta Lookbook</span>
+                </button>
+                <button
                   onClick={handlePrint}
                   className="flex-1 sm:flex-initial bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold py-2 px-3.5 rounded-xl border border-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   title="Stampa diretta con stili tipografici per foglio A4 orizzontale"
                 >
                   <Printer size={13} />
                   Stampa
+                </button>
+                <button
+                  onClick={handleExportActiveCardJson}
+                  className="flex-1 sm:flex-initial bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold py-2 px-3.5 rounded-xl border border-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  title="Esporta i dati completi e foto di questa card modella/o in file JSON per archiviazione o scambio tra agenzie"
+                >
+                  <FileUp size={13} className="rotate-180 text-indigo-600" />
+                  Esporta Card (.json)
+                </button>
+                <button
+                  onClick={() => setShowImportCardModal(true)}
+                  className="flex-1 sm:flex-initial bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold py-2 px-3 rounded-xl border border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  title="Importa card da file JSON, archivio catalogo, CSV o foto"
+                >
+                  <FolderInput size={13} className="text-emerald-700" />
+                  Importa Card
                 </button>
               </div>
             </div>
@@ -3606,9 +5129,14 @@ export default function App() {
                               className="rounded text-slate-900 focus:ring-slate-900 h-3.5 w-3.5 cursor-pointer accent-indigo-600"
                             />
                             <div className="truncate flex-1">
-                              <span className="text-xs font-bold block truncate">{p.name || "Senza Nome"}</span>
+                              <span className="text-xs font-bold block truncate flex items-center gap-1.5">
+                                <span>{p.name || "Senza Nome"}</span>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${isChecked ? "bg-indigo-500 text-white" : "bg-indigo-100 text-indigo-700"}`}>
+                                  v{p.version || 1}
+                                </span>
+                              </span>
                               <span className={`text-[9px] font-mono block ${isChecked ? "text-slate-300" : "text-slate-400"}`}>
-                                {p.height ? `${p.height}cm` : "—"} • {p.eyes || "—"}
+                                {p.height ? `${p.height}cm` : "—"} • {p.eyes || "—"}{p.versionNote ? ` • ${p.versionNote}` : ""}
                               </span>
                             </div>
                           </label>
@@ -3669,7 +5197,7 @@ export default function App() {
                       Estensioni Catalogo (Impaginazione)
                     </h4>
                     
-                    <div className="grid grid-cols-2 gap-3 bg-slate-50 border border-slate-200/50 rounded-xl p-2.5 text-left">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-50 border border-slate-200/50 rounded-xl p-2.5 text-left">
                       <label className="flex items-center gap-2.5 cursor-pointer select-none">
                         <input
                           type="checkbox"
@@ -3679,7 +5207,23 @@ export default function App() {
                         />
                         <div className="leading-tight">
                           <span className="text-[11px] font-bold text-slate-700 block">Intro Copertina</span>
-                          <span className="text-[9px] text-slate-400">Copertina iniziale con foto e brand</span>
+                          <span className="text-[9px] text-slate-400">Copertina con foto e brand</span>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={includeDynamicIndex}
+                          onChange={(e) => setIncludeDynamicIndex(e.target.checked)}
+                          className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer accent-indigo-600"
+                        />
+                        <div className="leading-tight">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[11px] font-bold text-indigo-900 block">Indice Dinamico</span>
+                            <span className="text-[8.5px] bg-indigo-100 text-indigo-800 font-extrabold px-1 rounded">Casting</span>
+                          </div>
+                          <span className="text-[9px] text-slate-400">Riepilogo finale con caselle [  ] e tag</span>
                         </div>
                       </label>
 
@@ -3696,6 +5240,57 @@ export default function App() {
                         </div>
                       </label>
                     </div>
+
+                    {includeDynamicIndex && (
+                      <div className="bg-indigo-50/60 border border-indigo-150 rounded-xl p-3 text-left space-y-2.5 shadow-2xs">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-indigo-100 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="p-1 bg-indigo-600 text-white rounded-md text-[10px]">📋</span>
+                            <span className="text-xs font-bold text-indigo-950">
+                              Indice Dinamico & Scheda Selezione Casting
+                            </span>
+                            <span className="text-[10px] bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">
+                              {selectedModelIds.length} schede collegate in tempo reale
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-indigo-700 font-semibold">
+                            Posizione: Ultima pagina catalogo
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-extrabold text-slate-600 uppercase">Titolo Intestazione Indice</label>
+                            <input
+                              type="text"
+                              value={indexTitleText}
+                              onChange={(e) => setIndexTitleText(e.target.value)}
+                              className="w-full text-[11px] px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-medium"
+                              placeholder="INDICE & SCHEDA SELEZIONE CASTING"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-extrabold text-slate-600 uppercase">Istruzioni / Note per il Cliente</label>
+                            <input
+                              type="text"
+                              value={indexSubtitleText}
+                              onChange={(e) => setIndexSubtitleText(e.target.value)}
+                              className="w-full text-[11px] px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-medium"
+                              placeholder="Spuntare la casella [  ] accanto a ciascun modello per indicare la preferenza..."
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-2 p-2.5 bg-white/90 rounded-lg border border-indigo-100 text-[10.5px] text-slate-600 leading-relaxed">
+                          <span className="text-sm mt-0.5">☑️</span>
+                          <div>
+                            <span className="font-bold text-slate-800">Funzionalità Interattiva Attiva: </span>
+                            Nel PDF generato verrà inclusa una pagina riepilogativa con <strong>miniatura del volto</strong>, <strong>nome e statistiche</strong>, <strong>tag di categoria (Portrait / Full Body / Editorial)</strong>, <strong>numero di pagina cliccabile</strong> e una <strong>casella di spunta [  ]</strong> per far segnare al cliente le sue preferenze (a penna su foglio stampato o con Apple Pencil/dito su iPad).
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {includeCover && (
                       <div className="bg-slate-50 border border-slate-200/50 rounded-xl p-3 text-left space-y-3">
@@ -3934,18 +5529,33 @@ export default function App() {
           )}
 
           {/* Interactive Screen Scaling and View controls - vital for MAC, IPAD & IPHONE */}
-          <div className="w-full bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4">
+          <div className="w-full bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="text-slate-500">
                 {previewScale <= 0.4 ? <Smartphone size={16} /> : previewScale <= 0.7 ? <Tablet size={16} /> : <Laptop size={16} />}
               </div>
               <div>
-                <span className="text-xs font-bold text-slate-800 block">Scala Anteprima</span>
-                <span className="text-[10px] text-slate-400">Modifica visualizzazione per adattare allo schermo</span>
+                <span className="text-xs font-bold text-slate-800 block">Scala & Guida Anteprima</span>
+                <span className="text-[10px] text-slate-400">Regola visualizzazione e allinea i volti</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Alignment Grid Overlay Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowGridOverlay(!showGridOverlay)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                  showGridOverlay
+                    ? "bg-indigo-600 text-white border-indigo-700 shadow-xs ring-2 ring-indigo-200"
+                    : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300"
+                }`}
+                title="Attiva/Disattiva overlay di griglia (terzi, assi occhi e millimetrica) sull'anteprima per allineare profili"
+              >
+                <Grid size={13} className={showGridOverlay ? "text-cyan-300" : "text-slate-500"} />
+                <span>Griglia {showGridOverlay ? "ON" : "OFF"}</span>
+              </button>
+
               {/* Manual Toggles */}
               <div className="flex bg-slate-100 rounded-lg p-0.5 text-[10px] font-semibold text-slate-600">
                 <button 
@@ -3985,7 +5595,7 @@ export default function App() {
                   setAutoScale(false);
                   setPreviewScale(parseFloat(e.target.value));
                 }}
-                className="w-24 accent-slate-900 hidden sm:block"
+                className="w-20 sm:w-24 accent-slate-900 hidden sm:block"
               />
             </div>
           </div>
@@ -4001,7 +5611,7 @@ export default function App() {
                 margin: `calc((210mm * (${previewScale} - 1)) / 2) calc((297mm * (${previewScale} - 1)) / 2)`,
                 transition: "transform 0.15s ease-out",
               }}
-              className="flex-shrink-0"
+              className="flex-shrink-0 relative"
             >
               <ModelCard
                 model={model}
@@ -4009,7 +5619,74 @@ export default function App() {
                 title={title}
                 themeColor={themeColor}
                 fontFamily={fontFamily}
+                watermarkOptions={{
+                  enabled: enableWatermark,
+                  text: watermarkText,
+                  opacity: watermarkOpacity,
+                  fontSize: watermarkFontSize,
+                }}
               />
+              {showGridOverlay && (
+                <GridOverlay
+                  mode={gridOverlayMode}
+                  onModeChange={setGridOverlayMode}
+                  onClose={() => setShowGridOverlay(false)}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Quick Mobile Action Hub directly below card on iPhone/Touch */}
+          <div className="lg:hidden w-full max-w-sm flex flex-col gap-2 pt-1 pb-3">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic("medium");
+                  setShowShareModal(true);
+                }}
+                className="py-3 px-3 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+              >
+                <Share2 size={15} />
+                <span>Invia WhatsApp / AirDrop</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic("medium");
+                  gestisciDownloadComposit();
+                }}
+                className="py-3 px-3 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+              >
+                <Download size={15} />
+                <span>Scarica PDF</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic("light");
+                  handleOpenLookbook();
+                }}
+                className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-3xs transition-all cursor-pointer border border-slate-700"
+              >
+                <BookOpen size={14} />
+                <span>Presenta Lookbook</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic("light");
+                  setMobileActiveTab("editor");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="py-2.5 px-3 bg-white hover:bg-slate-100 active:scale-95 text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-3xs transition-all cursor-pointer border border-slate-200"
+              >
+                <Sliders size={14} className="text-indigo-600" />
+                <span>Modifica Dati</span>
+              </button>
             </div>
           </div>
 
@@ -4160,6 +5837,12 @@ export default function App() {
                   title={title}
                   themeColor={themeColor}
                   fontFamily={fontFamily}
+                  watermarkOptions={{
+                    enabled: enableWatermark,
+                    text: watermarkText,
+                    opacity: watermarkOpacity,
+                    fontSize: watermarkFontSize,
+                  }}
                 />
               </div>
             );
@@ -4320,6 +6003,139 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Interactive Card Import Modal Dialog */}
+      <ImportCardModal
+        isOpen={showImportCardModal}
+        onClose={() => setShowImportCardModal(false)}
+        localProfiles={localProfiles}
+        currentModel={model}
+        onImportCards={handleImportCards}
+        agency={agency}
+      />
+
+      {/* Direct Card or Book PDF Share Modal (AirDrop, WhatsApp, Mail) */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        model={model}
+        agency={agency}
+        bookModelCount={
+          selectedModelIds.length > 0 
+            ? selectedModelIds.length 
+            : (localProfiles.length > 0 ? localProfiles.length : SAMPLE_MODELS.length)
+        }
+        onGenerateCardPdfBlob={handleGeneratePdfForShare}
+        onGenerateBookPdfBlob={handleGenerateBookPdfForShare}
+        showNotification={showNotification}
+      />
+
+      {/* Fullscreen Lookbook Presentation Mode Modal (Apple iPad / Mac / Client Showroom) */}
+      <LookbookModal
+        isOpen={showLookbookModal}
+        onClose={() => setShowLookbookModal(false)}
+        models={localProfiles.length > 0 ? localProfiles : SAMPLE_MODELS}
+        currentIndex={lookbookIndex}
+        onSelectIndex={(newIdx) => {
+          setLookbookIndex(newIdx);
+          const list = localProfiles.length > 0 ? localProfiles : SAMPLE_MODELS;
+          if (list[newIdx]) {
+            setModelWithHistory(list[newIdx]);
+          }
+        }}
+        agency={agency}
+        title={title}
+        themeColor={themeColor}
+        fontFamily={fontFamily}
+        watermarkOptions={{
+          enabled: enableWatermark,
+          text: watermarkText,
+          opacity: watermarkOpacity,
+          fontSize: watermarkFontSize,
+        }}
+        onDownloadCurrentPdf={(targetModel) => {
+          gestisciDownloadComposit(targetModel);
+        }}
+        onShareCurrentPdf={(targetModel) => {
+          setModelWithHistory(targetModel);
+          setShowShareModal(true);
+        }}
+      />
+
+      {/* Apple-style Glassmorphism Floating Bottom Action Bar for iPhone & Touch Devices */}
+      <nav 
+        aria-label="Barra rapida mobile Apple"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 px-3.5 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200/80 shadow-[0_-10px_25px_rgba(0,0,0,0.08)] safe-area-bottom-bar transition-all"
+      >
+        <div className="max-w-md mx-auto flex items-center justify-between gap-2 select-none">
+          {/* Switcher Tab: Editor vs Anteprima */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic("light");
+              const next = mobileActiveTab === "editor" ? "preview" : "editor";
+              setMobileActiveTab(next);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className={`flex-1 py-2.5 px-2.5 active:scale-95 text-xs font-bold rounded-2xl flex items-center justify-center gap-1.5 transition-all shadow-3xs cursor-pointer touch-action-manipulation ${
+              mobileActiveTab === "editor"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-800"
+            }`}
+          >
+            {mobileActiveTab === "editor" ? (
+              <>
+                <Eye size={15} className="shrink-0" />
+                <span className="truncate">Vedi Card</span>
+              </>
+            ) : (
+              <>
+                <Sliders size={15} className="text-indigo-600 shrink-0" />
+                <span className="truncate">Modifica</span>
+              </>
+            )}
+          </button>
+
+          {/* Scarica PDF Diretto */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic("medium");
+              gestisciDownloadComposit();
+            }}
+            className="flex-1 py-2.5 px-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer touch-action-manipulation"
+          >
+            <Download size={14} className="shrink-0" />
+            <span className="truncate">PDF</span>
+          </button>
+
+          {/* Condividi / AirDrop / WhatsApp */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic("medium");
+              setShowShareModal(true);
+            }}
+            className="flex-1 py-2.5 px-2.5 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 active:scale-95 text-white text-xs font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer touch-action-manipulation"
+          >
+            <Share2 size={14} className="shrink-0" />
+            <span className="truncate">Invia</span>
+          </button>
+
+          {/* Salva Rapido */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic("success");
+              handleSaveLocal();
+            }}
+            className="w-10 h-10 shrink-0 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 border border-slate-200/80 rounded-2xl flex items-center justify-center transition-all cursor-pointer touch-action-manipulation shadow-3xs"
+            title="Salva Modella nel Catalogo"
+          >
+            <Save size={16} />
+          </button>
+        </div>
+      </nav>
 
     </div>
   );

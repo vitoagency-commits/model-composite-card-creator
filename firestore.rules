@@ -20,8 +20,9 @@ service cloud.firestore {
         && m.name.size() <= 200
         && m.keys().hasAll(['id', 'name'])
         && (!('gender' in m) || m.gender in ["model woman", "model man", "child model woman", "child model man"])
-        && (!('layout' in m) || m.layout in ["classic", "duo", "asymmetric-left", "solo", "grid-4", "grid-6"])
-        && m.keys().size() <= 55;
+        && (!('layout' in m) || (m.layout is string && m.layout.size() <= 50))
+        && (!('version' in m) || (m.version is number && m.version >= 1))
+        && m.keys().size() <= 95;
     }
 
     // 3. Models Collection Rules

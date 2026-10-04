@@ -1,20 +1,35 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager,
+  doc, 
+  getDocFromServer 
+} from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with specific database ID from config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firestore with IndexedDB persistent local cache in browser environments
+// This guarantees local access to cached models even during offline states or Google free quota exhaustion
+export const db = (typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined')
+  ? initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    }, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
-// Test connection on boot (Critical Constraint)
+// Test connection on boot gracefully without crashing on free tier quota limits
 async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('the client is offline')) {
+      console.warn("Firebase client is currently in offline mode.");
+    } else if (msg.includes('Quota') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+      console.warn("Firestore free tier daily read quota exceeded. Running in resilient local cache mode.");
     }
   }
 }

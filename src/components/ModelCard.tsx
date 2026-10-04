@@ -1,18 +1,34 @@
-import React, { createContext, useContext } from "react";
-import { ModelData, AgencyInfo } from "../types";
+import React, { createContext, useContext, useMemo } from "react";
+import { ModelData, AgencyInfo, FontFamilyType } from "../types";
+import { getFilterCss } from "../filters";
 
-export const WatermarkContext = createContext<{ showWatermark: boolean; watermarkText: string }>({
+export const WatermarkContext = createContext<{
+  showWatermark: boolean;
+  watermarkText: string;
+  watermarkOpacity: number;
+  watermarkFontSize: number;
+}>({
   showWatermark: false,
   watermarkText: "",
+  watermarkOpacity: 0.20,
+  watermarkFontSize: 20,
 });
+
+export const ImageFilterContext = createContext<Record<string, string | undefined>>({});
 
 interface ModelCardProps {
   model: ModelData;
   agency: AgencyInfo;
   title: string;
   themeColor: "silver" | "charcoal" | "beige" | "gold" | "white";
-  fontFamily: "serif" | "display" | "sans";
+  fontFamily: FontFamilyType;
   id?: string;
+  watermarkOptions?: {
+    enabled?: boolean;
+    text?: string;
+    opacity?: number;
+    fontSize?: number;
+  };
 }
 
 interface CardImageProps {
@@ -21,14 +37,21 @@ interface CardImageProps {
   zoom: number | undefined;
   offsetX: number | undefined;
   offsetY: number | undefined;
+  filter?: string | undefined;
+  slot?: string;
 }
 
-const CardImage: React.FC<CardImageProps> = ({ src, alt, zoom, offsetX, offsetY }) => {
-  const { showWatermark, watermarkText } = useContext(WatermarkContext);
+const CardImage: React.FC<CardImageProps> = ({ src, alt, zoom, offsetX, offsetY, filter, slot }) => {
+  const { showWatermark, watermarkText, watermarkOpacity, watermarkFontSize } = useContext(WatermarkContext);
+  const filterContext = useContext(ImageFilterContext);
 
   const activeZoom = (zoom !== undefined && !isNaN(zoom)) ? zoom : 100;
   const activeOffsetX = (offsetX !== undefined && !isNaN(offsetX)) ? offsetX : 50;
   const activeOffsetY = (offsetY !== undefined && !isNaN(offsetY)) ? offsetY : 50;
+
+  // Resolve filter by direct prop, by slot name, or by matched image source URL
+  const resolvedFilter = filter || (slot ? filterContext[slot] : undefined) || filterContext[src] || undefined;
+  const filterCss = getFilterCss(resolvedFilter);
 
   const scale = activeZoom / 100;
   const isContain = activeZoom < 100;
@@ -53,12 +76,19 @@ const CardImage: React.FC<CardImageProps> = ({ src, alt, zoom, offsetX, offsetY 
             objectPosition: `${activeOffsetX}% ${activeOffsetY}%`,
             transform: `scale(${scale})`,
             transformOrigin: "center center",
+            filter: filterCss !== "none" ? filterCss : undefined,
           }}
         />
       )}
       {showWatermark && src && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-20 overflow-hidden">
-          <div className="transform -rotate-[32deg] whitespace-nowrap select-none pointer-events-none text-white/20 font-black text-xs sm:text-sm md:text-[20px] tracking-[0.25em] uppercase px-4 py-1 border border-white/10 rounded-sm bg-black/5 backdrop-blur-[0.5px] shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+          <div
+            className="transform -rotate-[32deg] whitespace-nowrap select-none pointer-events-none font-black tracking-[0.25em] uppercase px-4 py-1.5 border border-white/15 rounded-md bg-black/10 backdrop-blur-[0.5px] shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+            style={{
+              color: `rgba(255, 255, 255, ${watermarkOpacity !== undefined ? watermarkOpacity : 0.20})`,
+              fontSize: `${watermarkFontSize !== undefined ? watermarkFontSize : 20}px`,
+            }}
+          >
             {watermarkText || "COSMOPOLITAN"}
           </div>
         </div>
@@ -107,6 +137,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
   themeColor,
   fontFamily,
   id = "composit-card",
+  watermarkOptions,
 }) => {
   const bgThemes = {
     silver: "bg-[#e2e8f0]", // slate-200
@@ -133,10 +164,12 @@ export const ModelCard: React.FC<ModelCardProps> = ({
   };
 
   // Font family mapping
-  const fontStyles = {
+  const fontStyles: Record<FontFamilyType, string> = {
     serif: "font-serif",
     display: "font-display",
     sans: "font-sans",
+    cormorant: "font-cormorant",
+    montserrat: "font-montserrat",
   };
 
   // Helper to determine crossOrigin safely
@@ -178,11 +211,47 @@ export const ModelCard: React.FC<ModelCardProps> = ({
   const watermarkValue = React.useMemo(() => ({
     showWatermark: !!model.showWatermark,
     watermarkText: model.watermarkText || model.name || "COSMOPOLITAN",
-  }), [model.showWatermark, model.watermarkText, model.name]);
+    watermarkOpacity: model.watermarkOpacity !== undefined ? model.watermarkOpacity : 0.20,
+    watermarkFontSize: model.watermarkFontSize !== undefined ? model.watermarkFontSize : 20,
+  }), [model.showWatermark, model.watermarkText, model.name, model.watermarkOpacity, model.watermarkFontSize]);
+
+  const filtersRecord = React.useMemo(() => {
+    const record: Record<string, string | undefined> = {
+      Left: model.filterLeft,
+      Center: model.filterCenter,
+      Right: model.filterRight,
+      "4": model.filter4,
+      "5": model.filter5,
+      "6": model.filter6,
+      "7": model.filter7,
+      "8": model.filter8,
+      "9": model.filter9,
+      "10": model.filter10,
+    };
+    if (model.imageLeft) record[model.imageLeft] = model.filterLeft;
+    if (model.imageCenter) record[model.imageCenter] = model.filterCenter;
+    if (model.imageRight) record[model.imageRight] = model.filterRight;
+    if (model.image4) record[model.image4] = model.filter4;
+    if (model.image5) record[model.image5] = model.filter5;
+    if (model.image6) record[model.image6] = model.filter6;
+    if (model.image7) record[model.image7] = model.filter7;
+    if (model.image8) record[model.image8] = model.filter8;
+    if (model.image9) record[model.image9] = model.filter9;
+    if (model.image10) record[model.image10] = model.filter10;
+    return record;
+  }, [
+    model.filterLeft, model.filterCenter, model.filterRight,
+    model.filter4, model.filter5, model.filter6, model.filter7,
+    model.filter8, model.filter9, model.filter10,
+    model.imageLeft, model.imageCenter, model.imageRight,
+    model.image4, model.image5, model.image6, model.image7,
+    model.image8, model.image9, model.image10
+  ]);
 
   if (layout === "campaign-5-hybrid") {
     return (
       <WatermarkContext.Provider value={watermarkValue}>
+        <ImageFilterContext.Provider value={filtersRecord}>
         <div
           id={id}
           className={`print-container relative flex flex-col justify-between select-none overflow-hidden ${fontStyles[fontFamily]} ${bgThemes[themeColor]}`}
@@ -209,6 +278,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     zoom={model.zoomLeft}
                     offsetX={model.offsetXLeft}
                     offsetY={model.offsetYLeft}
+                    filter={model.filterLeft}
                   />
                 ) : (
                   <div className="text-center p-2">
@@ -231,6 +301,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                       zoom={model.zoomCenter}
                       offsetX={model.offsetXCenter}
                       offsetY={model.offsetYCenter}
+                      filter={model.filterCenter}
                     />
                   ) : (
                     <div className="text-center p-2">
@@ -250,6 +321,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                       zoom={model.zoomRight}
                       offsetX={model.offsetXRight}
                       offsetY={model.offsetYRight}
+                      filter={model.filterRight}
                     />
                   ) : (
                     <div className="text-center p-2">
@@ -269,6 +341,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                       zoom={model.zoom4}
                       offsetX={model.offsetX4}
                       offsetY={model.offsetY4}
+                      filter={model.filter4}
                     />
                   ) : (
                     <div className="text-center p-2">
@@ -288,6 +361,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                       zoom={model.zoom5}
                       offsetX={model.offsetX5}
                       offsetY={model.offsetY5}
+                      filter={model.filter5}
                     />
                   ) : (
                     <div className="text-center p-2">
@@ -314,7 +388,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
           {/* Bottom Footer bar (Responsive layout colors) */}
           <div className="flex justify-between items-end w-full border-t border-current/15 pt-2 pb-1 mt-auto">
             {/* Left side: Horizontal specifications */}
-            <div className={`flex items-center gap-4 text-[10px] ${labelThemes[themeColor]} tracking-wide`}>
+            <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] ${labelThemes[themeColor]} tracking-wide max-w-[170mm]`}>
               {model.height && (
                 <span className="uppercase">Height <strong className={`${textThemes[themeColor]} font-bold`}>{model.height}</strong></span>
               )}
@@ -335,6 +409,9 @@ export const ModelCard: React.FC<ModelCardProps> = ({
               )}
               {model.eyes && (
                 <span className="uppercase">Eyes <strong className={`${textThemes[themeColor]} font-bold`}>{model.eyes}</strong></span>
+              )}
+              {([model.sizeUpper?.trim(), model.sizeLower?.trim()].filter(Boolean).length > 0) && (
+                <span className="uppercase">Size <strong className={`${textThemes[themeColor]} font-bold`}>{[model.sizeUpper?.trim(), model.sizeLower?.trim()].filter(Boolean).join(" / ")}</strong></span>
               )}
             </div>
 
@@ -387,6 +464,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
             </div>
           </div>
         </div>
+        </ImageFilterContext.Provider>
       </WatermarkContext.Provider>
     );
   }
@@ -395,6 +473,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 
   return (
     <WatermarkContext.Provider value={watermarkValue}>
+      <ImageFilterContext.Provider value={filtersRecord}>
       <div
         id={id}
         className={`print-container bg-white relative flex flex-col justify-between select-none overflow-hidden ${fontStyles[fontFamily]}`}
@@ -439,7 +518,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
           </h2>
         </header>
       ) : (
-        <header className={`relative z-30 flex justify-between items-start pb-4 w-full ${["campaign-3", "campaign-brand-6", "campaign-tvc", "campaign-tvc-4"].includes(layout) ? "" : "border-b-2 border-black"}`}>
+        <header className={`relative z-30 flex justify-between items-start pb-4 w-full ${model.showHeaderDividerLine ? "border-b border-black" : ""}`}>
         <div className="flex flex-col items-start text-left gap-2.5">
           {/* Brand Logo integration */}
           {!model.hideHeaderLogo && (
@@ -1222,6 +1301,9 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   {model.eyes && (
                     <div className="capitalize">{model.eyes} Eyes</div>
                   )}
+                  {([model.sizeUpper?.trim(), model.sizeLower?.trim()].filter(Boolean).length > 0) && (
+                    <div>Size : {[model.sizeUpper?.trim(), model.sizeLower?.trim()].filter(Boolean).join(" / ")}</div>
+                  )}
                 </div>
 
                 {/* Decorative bottom cross motif */}
@@ -1619,6 +1701,9 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   )}
                   {model.eyes && (
                     <div className="capitalize font-medium text-slate-800">{model.eyes} Eyes</div>
+                  )}
+                  {([model.sizeUpper?.trim(), model.sizeLower?.trim()].filter(Boolean).length > 0) && (
+                    <div className="font-medium text-slate-800">Size: {[model.sizeUpper?.trim(), model.sizeLower?.trim()].filter(Boolean).join(" / ")}</div>
                   )}
                 </div>
 
@@ -2033,6 +2118,9 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   {model.shoes ? <div>Shoe: {model.shoes}</div> : null}
                   {model.hair ? <div>{model.hair} Hair</div> : null}
                   {model.eyes ? <div>{model.eyes} Eyes</div> : null}
+                  {([model.sizeUpper?.trim(), model.sizeLower?.trim()].filter(Boolean).length > 0) ? (
+                    <div>Size: {[model.sizeUpper?.trim(), model.sizeLower?.trim()].filter(Boolean).join(" / ")}</div>
+                  ) : null}
                 </div>
 
                 {/* Upward pointing T-motif */}
@@ -2702,7 +2790,26 @@ export const ModelCard: React.FC<ModelCardProps> = ({
         );
       })()}
 
+      {/* Optional full-page diagonal textual watermark preview */}
+      {watermarkOptions?.enabled && watermarkOptions?.text && (
+        <div 
+          className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-30 select-none"
+          aria-hidden="true"
+        >
+          <span
+            className="font-black tracking-widest text-slate-700 uppercase transform -rotate-[35deg] whitespace-nowrap drop-shadow-xs"
+            style={{
+              opacity: watermarkOptions.opacity ?? 0.15,
+              fontSize: `${Math.round((watermarkOptions.fontSize ?? 54) * 0.85)}px`,
+            }}
+          >
+            {watermarkOptions.text}
+          </span>
+        </div>
+      )}
+
     </div>
+      </ImageFilterContext.Provider>
     </WatermarkContext.Provider>
   );
 };

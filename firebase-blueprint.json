@@ -41,7 +41,22 @@
         "offsetY5": { "type": "number" },
         "offsetX6": { "type": "number" },
         "offsetY6": { "type": "number" },
-        "gender": { "type": "string", "enum": ["model woman", "model man", "child model woman", "child model man"] }
+        "gender": { "type": "string", "enum": ["model woman", "model man", "child model woman", "child model man"] },
+        "version": { "type": "number" },
+        "rootId": { "type": "string" },
+        "versionNote": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "filterLeft": { "type": "string" },
+        "filterCenter": { "type": "string" },
+        "filterRight": { "type": "string" },
+        "filter4": { "type": "string" },
+        "filter5": { "type": "string" },
+        "filter6": { "type": "string" },
+        "filter7": { "type": "string" },
+        "filter8": { "type": "string" },
+        "filter9": { "type": "string" },
+        "filter10": { "type": "string" }
       },
       "required": ["id", "name"]
     },

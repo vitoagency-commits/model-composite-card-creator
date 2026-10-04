@@ -72,10 +72,13 @@ export interface ModelData {
   hideHeaderContacts1?: boolean;
   hideHeaderContacts2?: boolean;
   hideHeaderContacts3?: boolean;
+  showHeaderDividerLine?: boolean;
   customFooterText?: string;
   customFooterWhiteBg?: boolean;
   showWatermark?: boolean;
   watermarkText?: string;
+  watermarkOpacity?: number;
+  watermarkFontSize?: number;
   showBottomRightLogo?: boolean;
   bottomRightLogoHeight?: number;
   useShortLogoForBottomRight?: boolean;
@@ -83,6 +86,22 @@ export interface ModelData {
   topCenterText?: string;
   topCenterLogo?: string; // base64 or URL
   topCenterLogoHeight?: number; // custom height in mm (default approx 10)
+  version?: number;
+  rootId?: string;
+  versionNote?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  filterLeft?: string;
+  filterCenter?: string;
+  filterRight?: string;
+  filter4?: string;
+  filter5?: string;
+  filter6?: string;
+  filter7?: string;
+  filter8?: string;
+  filter9?: string;
+  filter10?: string;
+  inCatalog?: boolean; // Tag per indicare inclusione nei cataloghi esportabili
 }
 
 export interface AgencyInfo {
@@ -100,4 +119,27 @@ export interface AgencyInfo {
   facebook?: string;
   threads?: string;
   pinterest?: string;
+}
+
+export interface BatchRenameOptions {
+  profileIds: string[];
+  tag: string;
+  format: "bracket" | "hyphen" | "underscore" | "space";
+  stripPrevious: boolean;
+}
+
+export type ConflictResolution = "new_version" | "new_model" | "overwrite";
+
+export type CardImportTarget = "editor" | "database" | "both";
+
+export type FontFamilyType = "sans" | "display" | "serif" | "cormorant" | "montserrat";
+
+export interface CardImportPackage {
+  formatVersion?: string;
+  exportedAt?: string;
+  agency?: Partial<AgencyInfo>;
+  cards?: Partial<ModelData>[];
+  // Support single profile exports
+  model?: Partial<ModelData>;
+  card?: Partial<ModelData>;
 }
