@@ -2609,8 +2609,8 @@ export default function App() {
       if (cachedModels) {
         const parsed = JSON.parse(cachedModels);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Permanently purge any residual sample Maria V. from cache
-          const cleaned = parsed.filter(p => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1");
+          // Permanently purge any residual legacy demo sample Maria V. from initial cache
+          const cleaned = parsed.filter(p => !(p.id === "1" || (p.name?.trim().toUpperCase() === "MARIA V." && p.imageLeft?.includes("unsplash.com/photo-1534528741775"))));
           if (cleaned.length !== parsed.length) {
             localStorage.setItem("fashion_catalog_profiles", JSON.stringify(cleaned));
           }
@@ -2894,7 +2894,7 @@ export default function App() {
       if (cachedModels) {
         const parsed = JSON.parse(cachedModels);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const cleaned = parsed.filter(p => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1");
+          const cleaned = parsed.filter(p => !(p.id === "1" || (p.name?.trim().toUpperCase() === "MARIA V." && p.imageLeft?.includes("unsplash.com/photo-1534528741775"))));
           setLocalProfiles(cleaned);
           if (cleaned.length !== parsed.length) {
             localStorage.setItem("fashion_catalog_profiles", JSON.stringify(cleaned));
@@ -2918,8 +2918,8 @@ export default function App() {
           const list: ModelData[] = [];
           snapshot.forEach((docSnap) => {
             const data = docSnap.data() as ModelData;
-            if ((data.name && data.name.toUpperCase().includes("MARIA")) || docSnap.id === "1") {
-              // Delete lingering sample document from Firestore
+            if (docSnap.id === "1" || (data.name?.trim().toUpperCase() === "MARIA V." && data.imageLeft?.includes("unsplash.com/photo-1534528741775"))) {
+              // Delete lingering legacy sample document from Firestore
               deleteDoc(doc(db, modelsCollection, docSnap.id)).catch(() => {});
             } else {
               list.push(data);
@@ -2939,12 +2939,12 @@ export default function App() {
             const currentCache = localStorage.getItem("fashion_catalog_profiles");
             const parsed = currentCache ? JSON.parse(currentCache) : [];
             const cleanedCache = Array.isArray(parsed)
-              ? parsed.filter((p: ModelData) => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1")
+              ? parsed.filter((p: ModelData) => !(p.id === "1" || (p.name?.trim().toUpperCase() === "MARIA V." && p.imageLeft?.includes("unsplash.com/photo-1534528741775"))))
               : [];
             const wasPurged = localStorage.getItem("fashion_catalog_purged_maria") === "true";
             const toSeed = (cleanedCache && cleanedCache.length > 0)
               ? cleanedCache
-              : (wasPurged ? [] : SAMPLE_MODELS.filter(p => !p.name?.toUpperCase().includes("MARIA")));
+              : (wasPurged ? [] : SAMPLE_MODELS);
 
             for (const sample of toSeed) {
               try {
@@ -3015,25 +3015,6 @@ export default function App() {
     };
   }, []);
 
-  // Clean up any residual Maria V. profile if loaded initially in active state
-  useEffect(() => {
-    if (model.name?.trim().toUpperCase().includes("MARIA") || model.id === "1") {
-      const valid = localProfiles.find((p) => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1");
-      if (valid) {
-        commitHistoryImmediately(valid);
-        setModel(valid);
-        lastFirestoreSavedJsonRef.current = JSON.stringify(valid);
-      } else if (SAMPLE_MODELS.length > 0) {
-        const clean = SAMPLE_MODELS.find(p => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1") || SAMPLE_MODELS[0];
-        commitHistoryImmediately(clean);
-        setModel(clean);
-        lastFirestoreSavedJsonRef.current = JSON.stringify(clean);
-      } else {
-        handleClearForm();
-      }
-    }
-  }, [model.name, localProfiles]);
-
   // Dynamic scale listener for multi-device responsive preview fit
   useEffect(() => {
     const handleResize = () => {
@@ -3092,10 +3073,13 @@ export default function App() {
     showNotification(`Caricato portfolio di ${p.name}`, "success");
   };
 
-  // Clear Form / Create New
+  // Clear Form / Create Brand New Model Card
   const handleClearForm = () => {
+    const newId = "model_" + Date.now().toString() + "_" + Math.random().toString(36).substring(2, 7);
     const emptyModel: ModelData = {
-      id: Date.now().toString(),
+      id: newId,
+      rootId: newId,
+      version: 1,
       name: "",
       height: "",
       bust: "",
@@ -3119,12 +3103,15 @@ export default function App() {
       offsetXRight: 50,
       offsetYRight: 50,
       gender: "model woman",
+      layout: "classic",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     commitHistoryImmediately(emptyModel);
     setModel(emptyModel);
     lastFirestoreSavedJsonRef.current = JSON.stringify(emptyModel);
     setAutoSaveStatus("idle");
-    showNotification("Modulo reimpostato per inserire dati vuoti", "info");
+    showNotification("Nuova scheda pronta: compila il nome e le misure della modella", "info");
   };
 
   // Toggle Auto-save handler
@@ -3147,7 +3134,6 @@ export default function App() {
   useEffect(() => {
     if (!autoSave) return;
     if (!model.name || !model.name.trim()) return;
-    if (model.name.trim().toUpperCase().includes("MARIA") || model.id === "1") return;
 
     // Only save if actual contents changed
     const currentJson = JSON.stringify(model);
@@ -3392,7 +3378,7 @@ export default function App() {
     const targetToDelete = localProfiles.find((p) => p.id === idToDelete);
     const targetName = targetToDelete?.name?.trim().toUpperCase();
 
-    if (targetName && targetName.includes("MARIA")) {
+    if (targetName && targetName === "MARIA V.") {
       try {
         localStorage.setItem("fashion_catalog_purged_maria", "true");
       } catch (e) {}
@@ -3400,13 +3386,7 @@ export default function App() {
 
     // 1. Immediately update local state and localStorage cache
     setLocalProfiles((prev) => {
-      const filtered = prev.filter((p) => {
-        if (p.id === idToDelete) return false;
-        if (targetName && targetName.includes("MARIA") && (p.name?.toUpperCase().includes("MARIA") || p.id === "1")) {
-          return false;
-        }
-        return true;
-      });
+      const filtered = prev.filter((p) => p.id !== idToDelete);
       try {
         localStorage.setItem("fashion_catalog_profiles", JSON.stringify(filtered));
       } catch (err) {
@@ -3422,16 +3402,14 @@ export default function App() {
     const isCurrentActive = model.id === idToDelete || (targetName && model.name?.trim().toUpperCase() === targetName);
     if (isCurrentActive) {
       const remaining = localProfiles.filter(p => p.id !== idToDelete && (!targetName || p.name?.trim().toUpperCase() !== targetName));
-      const cleanRemaining = remaining.filter(p => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1");
-      if (cleanRemaining.length > 0) {
-        commitHistoryImmediately(cleanRemaining[0]);
-        setModel(cleanRemaining[0]);
-        lastFirestoreSavedJsonRef.current = JSON.stringify(cleanRemaining[0]);
+      if (remaining.length > 0) {
+        commitHistoryImmediately(remaining[0]);
+        setModel(remaining[0]);
+        lastFirestoreSavedJsonRef.current = JSON.stringify(remaining[0]);
       } else if (SAMPLE_MODELS.length > 0) {
-        const cleanSample = SAMPLE_MODELS.find(p => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1") || SAMPLE_MODELS[0];
-        commitHistoryImmediately(cleanSample);
-        setModel(cleanSample);
-        lastFirestoreSavedJsonRef.current = JSON.stringify(cleanSample);
+        commitHistoryImmediately(SAMPLE_MODELS[0]);
+        setModel(SAMPLE_MODELS[0]);
+        lastFirestoreSavedJsonRef.current = JSON.stringify(SAMPLE_MODELS[0]);
       } else {
         handleClearForm();
       }

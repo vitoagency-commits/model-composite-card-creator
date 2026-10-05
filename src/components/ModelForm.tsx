@@ -18,6 +18,7 @@ import {
   ZoomIn,
   CheckCircle,
   PlusCircle,
+  Plus,
   Maximize2,
   Undo,
   Redo,
@@ -1542,18 +1543,29 @@ export const ModelForm: React.FC<ModelFormProps> = ({
             {/* Quick Saved Card Selector in Tab 1 - Directly switch between created cards */}
             {localProfiles.length > 0 && (
               <div className="bg-indigo-50/70 border border-indigo-150 rounded-xl p-3 mb-1 space-y-2 text-left">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <label className="text-[11px] font-bold text-indigo-950 uppercase tracking-wide flex items-center gap-1.5">
                     <Layers size={13} className="text-indigo-600" />
                     Card Create nel Database ({localProfiles.length})
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("salvati")}
-                    className="text-[10.5px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
-                  >
-                    Vedi Archivio Completo →
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={onClearForm}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold py-1 px-2.5 rounded-lg flex items-center gap-1 shadow-3xs transition-all active:scale-95 cursor-pointer"
+                      title="Crea una nuova scheda modella da zero"
+                    >
+                      <Plus size={12} />
+                      + Nuova Scheda
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("salvati")}
+                      className="text-[10.5px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
+                    >
+                      Vedi Archivio →
+                    </button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5 max-h-[85px] overflow-y-auto pr-1">
                   {localProfiles.slice(0, 12).map((p) => {
@@ -1590,6 +1602,34 @@ export const ModelForm: React.FC<ModelFormProps> = ({
               </div>
             )}
 
+            {/* Current Editing / Creation Context Banner */}
+            {(() => {
+              const isSavedInDb = localProfiles.some((p) => p.id === model.id);
+              return isSavedInDb ? (
+                <div className="flex items-center justify-between bg-slate-100/90 border border-slate-200/90 px-3 py-1.5 rounded-xl text-xs">
+                  <span className="text-slate-700 font-medium flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    Stai modificando: <strong className="text-slate-900">{model.name || "Modello"}</strong> (v{model.version || 1})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onClearForm}
+                    className="text-emerald-700 hover:text-emerald-900 font-bold text-[11px] underline flex items-center gap-1 cursor-pointer ml-2"
+                  >
+                    <Plus size={12} /> Nuova modella
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs">
+                  <span className="text-emerald-900 font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                    ✨ Creazione NUOVA Scheda Modella
+                  </span>
+                  <span className="text-[10.5px] text-emerald-700 font-semibold">Compila i dati e salva</span>
+                </div>
+              );
+            })()}
+
             {/* Quick Template Presets */}
             <div>
               <label className="text-[11px] font-bold tracking-wider text-slate-400 uppercase block mb-2 text-left">
@@ -1607,11 +1647,12 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                   </button>
                 ))}
                 <button
+                  type="button"
                   onClick={onClearForm}
-                  className="bg-red-50 hover:bg-red-100 border border-red-200 text-xs text-red-600 py-1.5 px-3 rounded-full flex items-center gap-1 transition-all"
+                  className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-xs text-emerald-800 font-bold py-1.5 px-3 rounded-full flex items-center gap-1 transition-all shadow-3xs cursor-pointer active:scale-95"
                 >
-                  <Trash2 size={11} />
-                  Nuovo / Pulisci
+                  <Plus size={12} className="text-emerald-600" />
+                  + Nuova Scheda Vuota
                 </button>
               </div>
             </div>
@@ -1625,6 +1666,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                   type="text"
                   placeholder="es. SOFIA B."
                   value={model.name}
+                  autoComplete="off"
                   onChange={(e) => handleFieldChange("name", e.target.value.toUpperCase())}
                   className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-slate-900 focus:border-transparent font-medium"
                 />
@@ -2472,41 +2514,66 @@ export const ModelForm: React.FC<ModelFormProps> = ({
               })()}
 
               <div className="space-y-2">
-                {/* Save as New Version Button */}
-                <button
-                  type="button"
-                  onClick={() => onSaveNewVersion ? onSaveNewVersion(model.versionNote) : onSaveLocal()}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 shadow-sm transition-all hover:shadow cursor-pointer"
-                  title="Salva lo stato attuale come una nuova revisione numerata (es. v2, v3), conservando la versione precedente intatta."
-                >
-                  <BookmarkPlus size={14} />
-                  Salva come nuova versione (v{(model.version || 1) + 1})
-                </button>
+                {(() => {
+                  const isSavedInDb = localProfiles.some((p) => p.id === model.id);
+                  if (!isSavedInDb) {
+                    return (
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={onSaveLocal}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-sm hover:shadow transition-all cursor-pointer active:scale-95"
+                          title="Salva questa nuova scheda nel database per averla sempre disponibile"
+                        >
+                          <CheckCircle size={15} />
+                          <span>💾 Salva Nuova Scheda nel Database</span>
+                        </button>
+                        <p className="text-[10px] text-slate-500 text-center font-medium">
+                          Questa scheda è nuova e verrà aggiunta al tuo archivio.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <>
+                      {/* Save as New Version Button */}
+                      <button
+                        type="button"
+                        onClick={() => onSaveNewVersion ? onSaveNewVersion(model.versionNote) : onSaveLocal()}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 shadow-sm transition-all hover:shadow cursor-pointer"
+                        title="Salva lo stato attuale come una nuova revisione numerata (es. v2, v3), conservando la versione precedente intatta."
+                      >
+                        <BookmarkPlus size={14} />
+                        Salva come nuova versione (v{(model.version || 1) + 1})
+                      </button>
 
-                {/* Overwrite / Update active version */}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={onSaveLocal}
-                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg flex items-center justify-center gap-1 shadow-xs transition-colors cursor-pointer"
-                    title={`Aggiorna e sovrascrive i dati della versione corrente v${model.version || 1}`}
-                  >
-                    <CheckCircle size={12} />
-                    Aggiorna Versione Attuale (v{model.version || 1})
-                  </button>
+                      {/* Overwrite / Update active version */}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={onSaveLocal}
+                          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1 shadow-xs transition-colors cursor-pointer"
+                          title={`Aggiorna e sovrascrive i dati della versione corrente v${model.version || 1}`}
+                        >
+                          <CheckCircle size={13} />
+                          Aggiorna Versione Attuale (v{model.version || 1})
+                        </button>
 
-                  {onDuplicateLocal && (
-                    <button
-                      type="button"
-                      onClick={() => onDuplicateLocal(model)}
-                      className="bg-slate-700 hover:bg-slate-800 text-white text-xs font-medium py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1 shadow-xs transition-colors cursor-pointer"
-                      title="Duplica come modello del tutto separato"
-                    >
-                      <Copy size={12} />
-                      Copia
-                    </button>
-                  )}
-                </div>
+                        {onDuplicateLocal && (
+                          <button
+                            type="button"
+                            onClick={() => onDuplicateLocal(model)}
+                            className="bg-slate-700 hover:bg-slate-800 text-white text-xs font-medium py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1 shadow-xs transition-colors cursor-pointer"
+                            title="Duplica come modello del tutto separato"
+                          >
+                            <Copy size={12} />
+                            Copia
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
 
                 {/* Import / Export Card Quick Actions */}
                 <div className="pt-2 border-t border-slate-200/70 flex items-center gap-2">
@@ -4633,10 +4700,24 @@ export const ModelForm: React.FC<ModelFormProps> = ({
             )}
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2 text-left">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <GitBranch size={13} className="text-indigo-600" />
-                Profili & Revisioni ({localProfiles.length})
-              </h4>
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <GitBranch size={13} className="text-indigo-600" />
+                  Profili & Revisioni ({localProfiles.length})
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearForm();
+                    setActiveTab("dati");
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-3xs transition-all cursor-pointer active:scale-95"
+                  title="Crea una nuova scheda modella da zero"
+                >
+                  <Plus size={12} />
+                  <span>+ Nuova Modella</span>
+                </button>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 {onOpenImportCardsModal && (
                   <button
