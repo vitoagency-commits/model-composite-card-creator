@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useMemo } from "react";
+import { Upload } from "lucide-react";
 import { ModelData, AgencyInfo, FontFamilyType } from "../types";
 import { getFilterCss } from "../filters";
 
@@ -29,6 +30,8 @@ interface ModelCardProps {
     opacity?: number;
     fontSize?: number;
   };
+  onUploadSlot?: (slot: "Left" | "Center" | "Right" | "4" | "5" | "6" | "7" | "8" | "9" | "10") => void;
+  onQuickFillSlot?: (slot: string, src: string) => void;
 }
 
 interface CardImageProps {
@@ -40,6 +43,105 @@ interface CardImageProps {
   filter?: string | undefined;
   slot?: string;
 }
+
+interface InteractivePhotoSlotProps {
+  slot: "Left" | "Center" | "Right" | "4" | "5" | "6" | "7" | "8" | "9" | "10";
+  src?: string;
+  fallbackSrc?: string;
+  zoom?: number;
+  offsetX?: number;
+  offsetY?: number;
+  filter?: string;
+  alt: string;
+  slotLabel: string;
+  sublabel?: string;
+  onUploadSlot?: (slot: "Left" | "Center" | "Right" | "4" | "5" | "6" | "7" | "8" | "9" | "10") => void;
+  onQuickFillSlot?: (slot: string, src: string) => void;
+  availablePhotos?: { label: string; src: string; slot: string }[];
+}
+
+const InteractivePhotoSlot: React.FC<InteractivePhotoSlotProps> = ({
+  slot,
+  src,
+  fallbackSrc,
+  zoom,
+  offsetX,
+  offsetY,
+  filter,
+  alt,
+  slotLabel,
+  sublabel,
+  onUploadSlot,
+  onQuickFillSlot,
+  availablePhotos,
+}) => {
+  const activeImage = src || fallbackSrc;
+
+  if (activeImage) {
+    return (
+      <div className="w-full h-full relative group overflow-hidden">
+        <CardImage
+          src={activeImage}
+          alt={alt}
+          zoom={zoom}
+          offsetX={offsetX}
+          offsetY={offsetY}
+          filter={filter}
+          slot={slot}
+        />
+        {onUploadSlot && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUploadSlot(slot);
+            }}
+            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 hover:bg-black text-white p-1 rounded-md text-[8px] font-bold z-30 cursor-pointer shadow-md flex items-center gap-1 backdrop-blur-xs"
+            title="Cambia o carica nuova foto per questo slot"
+          >
+            <Upload size={10} />
+            <span className="hidden sm:inline">Sostituisci</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => onUploadSlot?.(slot)}
+      className="w-full h-full bg-slate-50 hover:bg-indigo-50/70 border-2 border-dashed border-slate-300 hover:border-indigo-400 flex flex-col items-center justify-center p-2 text-center transition-all cursor-pointer group relative overflow-hidden select-none"
+      title={`Tocca per inserire foto in ${slotLabel}`}
+    >
+      <div className="w-7 h-7 rounded-full bg-white shadow-xs group-hover:scale-110 flex items-center justify-center text-indigo-600 mb-1 transition-transform">
+        <Upload size={13} />
+      </div>
+      <p className="text-[10px] text-slate-700 font-bold uppercase tracking-wider">{slotLabel}</p>
+      <p className="text-[8px] text-indigo-600 font-semibold mt-0.5 group-hover:underline">
+        Tocca per inserire
+      </p>
+      {sublabel && <p className="text-[7.5px] text-slate-400 mt-0.5">{sublabel}</p>}
+      {availablePhotos && availablePhotos.length > 0 && onQuickFillSlot && (
+        <div
+          className="flex flex-wrap gap-1 justify-center mt-1.5 z-20"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {availablePhotos.slice(0, 3).map((p, idx) => (
+            <button
+              key={p.slot}
+              type="button"
+              onClick={() => onQuickFillSlot(slot, p.src)}
+              className="text-[7.5px] font-bold px-1.5 py-0.5 bg-white hover:bg-indigo-600 hover:text-white text-slate-700 rounded border border-slate-200 shadow-3xs transition-all cursor-pointer"
+              title={`Assegna foto da ${p.label}`}
+            >
+              Usa Foto {idx + 1}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CardImage: React.FC<CardImageProps> = ({ src, alt, zoom, offsetX, offsetY, filter, slot }) => {
   const { showWatermark, watermarkText, watermarkOpacity, watermarkFontSize } = useContext(WatermarkContext);
@@ -138,7 +240,57 @@ export const ModelCard: React.FC<ModelCardProps> = ({
   fontFamily,
   id = "composit-card",
   watermarkOptions,
+  onUploadSlot,
+  onQuickFillSlot,
 }) => {
+  const allPhotosPool = useMemo(() => {
+    return [
+      model.imageLeft,
+      model.imageCenter,
+      model.imageRight,
+      model.image4,
+      model.image5,
+      model.image6,
+      model.image7,
+      model.image8,
+      model.image9,
+      model.image10,
+    ].filter((img): img is string => Boolean(img && typeof img === "string" && img.trim().length > 0));
+  }, [
+    model.imageLeft, model.imageCenter, model.imageRight,
+    model.image4, model.image5, model.image6,
+    model.image7, model.image8, model.image9, model.image10,
+  ]);
+
+  const availablePhotos = useMemo(() => {
+    const list: { label: string; src: string; slot: string }[] = [];
+    if (model.imageLeft) list.push({ label: "Foto 1 (Sinistra)", src: model.imageLeft, slot: "Left" });
+    if (model.imageCenter) list.push({ label: "Foto 2 (Centro)", src: model.imageCenter, slot: "Center" });
+    if (model.imageRight) list.push({ label: "Foto 3 (Destra)", src: model.imageRight, slot: "Right" });
+    if (model.image4) list.push({ label: "Foto 4", src: model.image4, slot: "4" });
+    if (model.image5) list.push({ label: "Foto 5", src: model.image5, slot: "5" });
+    if (model.image6) list.push({ label: "Foto 6", src: model.image6, slot: "6" });
+    if (model.image7) list.push({ label: "Foto 7", src: model.image7, slot: "7" });
+    if (model.image8) list.push({ label: "Foto 8", src: model.image8, slot: "8" });
+    if (model.image9) list.push({ label: "Foto 9", src: model.image9, slot: "9" });
+    if (model.image10) list.push({ label: "Foto 10", src: model.image10, slot: "10" });
+    return list;
+  }, [
+    model.imageLeft, model.imageCenter, model.imageRight,
+    model.image4, model.image5, model.image6,
+    model.image7, model.image8, model.image9, model.image10,
+  ]);
+
+  const getFallback = (preferredSlots: Array<string | undefined>, slotIndex: number): string | undefined => {
+    for (const p of preferredSlots) {
+      if (p && typeof p === "string" && p.trim().length > 0) return p;
+    }
+    if (allPhotosPool.length > 0) {
+      return allPhotosPool[slotIndex % allPhotosPool.length];
+    }
+    return undefined;
+  };
+
   const bgThemes = {
     silver: "bg-[#e2e8f0]", // slate-200
     charcoal: "bg-[#334155]", // slate-700
@@ -271,21 +423,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
               className="bg-white p-0.5 shadow-md border border-slate-200/80 w-[120mm] h-[155mm] transition-all duration-300 hover:shadow-lg relative flex flex-col"
             >
               <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                {model.imageLeft ? (
-                  <CardImage
-                    src={model.imageLeft}
-                    alt="Left Main Campaign"
-                    zoom={model.zoomLeft}
-                    offsetX={model.offsetXLeft}
-                    offsetY={model.offsetYLeft}
-                    filter={model.filterLeft}
-                  />
-                ) : (
-                  <div className="text-center p-2">
-                    <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto Sinistra Grande</p>
-                    <p className="text-[8px] text-stone-400">Carica Foto Sinistra</p>
-                  </div>
-                )}
+                <InteractivePhotoSlot
+                  slot="Left"
+                  src={model.imageLeft}
+                  fallbackSrc={getFallback([], 0)}
+                  zoom={model.zoomLeft}
+                  offsetX={model.offsetXLeft}
+                  offsetY={model.offsetYLeft}
+                  filter={model.filterLeft}
+                  alt="Left Main Campaign"
+                  slotLabel="Foto Sinistra Grande"
+                  sublabel="Ritratto alto impatto"
+                  onUploadSlot={onUploadSlot}
+                  onQuickFillSlot={onQuickFillSlot}
+                  availablePhotos={availablePhotos}
+                />
               </div>
             </div>
 
@@ -294,80 +446,84 @@ export const ModelCard: React.FC<ModelCardProps> = ({
               {/* Photo 2 (Center) */}
               <div className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg relative flex flex-col h-[75.5mm] overflow-hidden">
                 <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                  {model.imageCenter ? (
-                    <CardImage
-                      src={model.imageCenter}
-                      alt="Grid Photo 2"
-                      zoom={model.zoomCenter}
-                      offsetX={model.offsetXCenter}
-                      offsetY={model.offsetYCenter}
-                      filter={model.filterCenter}
-                    />
-                  ) : (
-                    <div className="text-center p-2">
-                      <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 2 (Alto Sinistra)</p>
-                    </div>
-                  )}
+                  <InteractivePhotoSlot
+                    slot="Center"
+                    src={model.imageCenter}
+                    fallbackSrc={getFallback([], 1)}
+                    zoom={model.zoomCenter}
+                    offsetX={model.offsetXCenter}
+                    offsetY={model.offsetYCenter}
+                    filter={model.filterCenter}
+                    alt="Grid Photo 2"
+                    slotLabel="Foto 2"
+                    sublabel="Alto Sinistra"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
               {/* Photo 3 (Right) */}
               <div className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg relative flex flex-col h-[75.5mm] overflow-hidden">
                 <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                  {model.imageRight ? (
-                    <CardImage
-                      src={model.imageRight}
-                      alt="Grid Photo 3"
-                      zoom={model.zoomRight}
-                      offsetX={model.offsetXRight}
-                      offsetY={model.offsetYRight}
-                      filter={model.filterRight}
-                    />
-                  ) : (
-                    <div className="text-center p-2">
-                      <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 3 (Alto Destra)</p>
-                    </div>
-                  )}
+                  <InteractivePhotoSlot
+                    slot="Right"
+                    src={model.imageRight}
+                    fallbackSrc={getFallback([], 2)}
+                    zoom={model.zoomRight}
+                    offsetX={model.offsetXRight}
+                    offsetY={model.offsetYRight}
+                    filter={model.filterRight}
+                    alt="Grid Photo 3"
+                    slotLabel="Foto 3"
+                    sublabel="Alto Destra"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
               {/* Photo 4 (Image4) */}
               <div className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg relative flex flex-col h-[75.5mm] overflow-hidden">
                 <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                  {model.image4 ? (
-                    <CardImage
-                      src={model.image4}
-                      alt="Grid Photo 4"
-                      zoom={model.zoom4}
-                      offsetX={model.offsetX4}
-                      offsetY={model.offsetY4}
-                      filter={model.filter4}
-                    />
-                  ) : (
-                    <div className="text-center p-2">
-                      <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 4 (Basso Sinistra)</p>
-                    </div>
-                  )}
+                  <InteractivePhotoSlot
+                    slot="4"
+                    src={model.image4}
+                    fallbackSrc={getFallback([], 3)}
+                    zoom={model.zoom4}
+                    offsetX={model.offsetX4}
+                    offsetY={model.offsetY4}
+                    filter={model.filter4}
+                    alt="Grid Photo 4"
+                    slotLabel="Foto 4"
+                    sublabel="Basso Sinistra"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
               {/* Photo 5 (Image5) */}
               <div className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg relative flex flex-col h-[75.5mm] overflow-hidden">
                 <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                  {model.image5 ? (
-                    <CardImage
-                      src={model.image5}
-                      alt="Grid Photo 5"
-                      zoom={model.zoom5}
-                      offsetX={model.offsetX5}
-                      offsetY={model.offsetY5}
-                      filter={model.filter5}
-                    />
-                  ) : (
-                    <div className="text-center p-2">
-                      <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 5 (Basso Destra)</p>
-                    </div>
-                  )}
+                  <InteractivePhotoSlot
+                    slot="5"
+                    src={model.image5}
+                    fallbackSrc={getFallback([], 4)}
+                    zoom={model.zoom5}
+                    offsetX={model.offsetX5}
+                    offsetY={model.offsetY5}
+                    filter={model.filter5}
+                    alt="Grid Photo 5"
+                    slotLabel="Foto 5"
+                    sublabel="Basso Destra"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
             </div>
@@ -653,7 +809,8 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 
       {/* Main 3 Sections with Images - Simulates High Density Layout */}
       <div className={`w-full flex-grow flex items-center justify-center p-1 my-1 rounded-sm transition-colors ${bgThemes[themeColor]}`}>
-        <div className="w-full max-w-[273mm] flex items-end justify-center px-1 gap-[3mm]">          {/* CLASSIC 3-PHOTO LAYOUT */}
+        <div className="w-full max-w-[273mm] flex items-end justify-center px-1 gap-[3mm]">
+          {/* CLASSIC 3-PHOTO LAYOUT */}
           {layout === "classic" && (
             <>
               {/* Section 1: Portrait */}
@@ -662,22 +819,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                   style={{ width: "87mm", height: "125mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageLeft ? (
-                      <CardImage
-                        src={model.imageLeft}
-                        alt="Portrait Left"
-                        zoom={model.zoomLeft}
-                        offsetX={model.offsetXLeft}
-                        offsetY={model.offsetYLeft}
-                      />
-                    ) : (
-                      <div className="text-center p-4">
-                        <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Primo Piano</p>
-                        <p className="text-[10px] text-stone-400 mt-1">Carica Foto Sinistra</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Left"
+                    src={model.imageLeft}
+                    fallbackSrc={getFallback([], 0)}
+                    zoom={model.zoomLeft}
+                    offsetX={model.offsetXLeft}
+                    offsetY={model.offsetYLeft}
+                    alt="Portrait Left"
+                    slotLabel="Foto Sinistra"
+                    sublabel="Primo piano / Ritratto"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[8px] font-semibold uppercase tracking-[0.2em] text-slate-500 mt-1">
                   PORTRAIT / PROFILE
@@ -690,22 +845,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-1 hover:p-1.5 shadow-xl border-2 border-slate-900 transition-all duration-300 hover:shadow-2xl flex flex-col justify-between scale-[1.01]"
                   style={{ width: "87mm", height: "128mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageCenter ? (
-                      <CardImage
-                        src={model.imageCenter}
-                        alt="Center Three-quarters"
-                        zoom={model.zoomCenter}
-                        offsetX={model.offsetXCenter}
-                        offsetY={model.offsetYCenter}
-                      />
-                    ) : (
-                      <div className="text-center p-4">
-                        <p className="text-[12px] text-slate-800 uppercase tracking-widest font-bold">Mezza Figura</p>
-                        <p className="text-[10px] text-stone-400 mt-1">Carica Foto Centrale</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Center"
+                    src={model.imageCenter}
+                    fallbackSrc={getFallback([model.imageRight, model.imageLeft], 1)}
+                    zoom={model.zoomCenter}
+                    offsetX={model.offsetXCenter}
+                    offsetY={model.offsetYCenter}
+                    alt="Center Three-quarters"
+                    slotLabel="Foto Centro"
+                    sublabel="Mezza figura / Tre quarti"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[8px] font-extrabold uppercase tracking-[0.2em] text-slate-900 mt-1">
                   THREE-QUARTERS
@@ -718,22 +871,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                   style={{ width: "87mm", height: "125mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageRight ? (
-                      <CardImage
-                        src={model.imageRight}
-                        alt="Right Full body"
-                        zoom={model.zoomRight}
-                        offsetX={model.offsetXRight}
-                        offsetY={model.offsetYRight}
-                      />
-                    ) : (
-                      <div className="text-center p-4">
-                        <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Figura Intera</p>
-                        <p className="text-[10px] text-stone-400 mt-1">Carica Foto Destra</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Right"
+                    src={model.imageRight}
+                    fallbackSrc={getFallback([model.imageCenter, model.imageLeft], 2)}
+                    zoom={model.zoomRight}
+                    offsetX={model.offsetXRight}
+                    offsetY={model.offsetYRight}
+                    alt="Full Body"
+                    slotLabel="Foto Destra"
+                    sublabel="Figura intera"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[8px] font-semibold uppercase tracking-[0.2em] text-slate-500 mt-1">
                   FULL BODY
@@ -751,23 +902,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                   style={{ width: "132mm", height: "125mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageLeft ? (
-                      <CardImage
-                        src={model.imageLeft}
-                        alt="Portrait Left"
-                        zoom={model.zoomLeft}
-                        offsetX={model.offsetXLeft}
-                        offsetY={model.offsetYLeft}
-                      />
-                    ) : (
-                      <div className="text-center p-4">
-                        <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto di Sinistra</p>
-                        <p className="text-[10px] text-stone-400 mt-1">Carica Foto Sinistra</p>
-                      </div>
-                    )}
-                    {/* Removed overlay badge for clean layout */}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Left"
+                    src={model.imageLeft}
+                    fallbackSrc={getFallback([model.imageCenter, model.imageRight], 0)}
+                    zoom={model.zoomLeft}
+                    offsetX={model.offsetXLeft}
+                    offsetY={model.offsetYLeft}
+                    alt="Portrait Left"
+                    slotLabel="Foto di Sinistra"
+                    sublabel="Ritratto / Editoriale"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[8px] font-semibold uppercase tracking-[0.2em] text-slate-500 mt-1">
                   PORTRAIT / SPECIAL EDITORIAL
@@ -780,23 +928,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-1 hover:p-1.5 shadow-xl border-2 border-slate-900 transition-all duration-300 hover:shadow-2xl flex flex-col justify-between scale-[1.01]"
                   style={{ width: "132mm", height: "125mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageRight ? (
-                      <CardImage
-                        src={model.imageRight}
-                        alt="Right Portrait"
-                        zoom={model.zoomRight}
-                        offsetX={model.offsetXRight}
-                        offsetY={model.offsetYRight}
-                      />
-                    ) : (
-                      <div className="text-center p-4">
-                        <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto di Destra</p>
-                        <p className="text-[10px] text-stone-400 mt-1">Carica Foto Destra</p>
-                      </div>
-                    )}
-                    {/* Removed overlay badge for clean layout */}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Right"
+                    src={model.imageRight}
+                    fallbackSrc={getFallback([model.imageCenter, model.imageLeft], 1)}
+                    zoom={model.zoomRight}
+                    offsetX={model.offsetXRight}
+                    offsetY={model.offsetYRight}
+                    alt="Right Portrait"
+                    slotLabel="Foto di Destra"
+                    sublabel="Corpo intero / Composit"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[8px] font-extrabold uppercase tracking-[0.2em] text-slate-900 mt-1">
                   FULL BODY / COMPOSIT HIGHLIGHT
@@ -814,23 +959,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                   style={{ width: "132mm", height: "125mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageLeft ? (
-                      <CardImage
-                        src={model.imageLeft}
-                        alt="Cover Left"
-                        zoom={model.zoomLeft}
-                        offsetX={model.offsetXLeft}
-                        offsetY={model.offsetYLeft}
-                      />
-                    ) : (
-                      <div className="text-center p-4">
-                        <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto Principale</p>
-                        <p className="text-[10px] text-stone-400 mt-1">Carica Foto Sinistra</p>
-                      </div>
-                    )}
-                    {/* Removed overlay badge for clean layout */}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Left"
+                    src={model.imageLeft}
+                    fallbackSrc={getFallback([], 0)}
+                    zoom={model.zoomLeft}
+                    offsetX={model.offsetXLeft}
+                    offsetY={model.offsetYLeft}
+                    alt="Cover Left"
+                    slotLabel="Foto Principale"
+                    sublabel="Copertina Grande"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[8px] font-semibold uppercase tracking-[0.2em] text-slate-500 mt-1">
                   EDITORIAL FEATURE
@@ -845,23 +987,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-md border border-slate-200/60 transition-all duration-300 hover:shadow-lg flex flex-col justify-between"
                     style={{ width: "132mm", height: "55mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageCenter ? (
-                        <CardImage
-                          src={model.imageCenter}
-                          alt="Center landscape"
-                          zoom={model.zoomCenter}
-                          offsetX={model.offsetXCenter}
-                          offsetY={model.offsetYCenter}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[11px] text-stone-500 uppercase tracking-wider font-bold">Foto Centrale</p>
-                          <p className="text-[9px] text-stone-400">Carica Foto Centrale</p>
-                        </div>
-                      )}
-                      {/* Removed overlay badge for clean layout */}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Center"
+                      src={model.imageCenter}
+                      fallbackSrc={getFallback([model.imageRight, model.imageLeft], 1)}
+                      zoom={model.zoomCenter}
+                      offsetX={model.offsetXCenter}
+                      offsetY={model.offsetYCenter}
+                      alt="Center landscape"
+                      slotLabel="Foto Centrale"
+                      sublabel="In alto a destra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                   <span className="text-[7.5px] font-medium uppercase tracking-[0.2em] text-slate-500 mt-0.5">
                     PROFILE CLOSE-UP
@@ -874,23 +1013,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-md border border-slate-200/60 transition-all duration-300 hover:shadow-lg flex flex-col justify-between"
                     style={{ width: "132mm", height: "55mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageRight ? (
-                        <CardImage
-                          src={model.imageRight}
-                          alt="Right landscape"
-                          zoom={model.zoomRight}
-                          offsetX={model.offsetXRight}
-                          offsetY={model.offsetYRight}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[11px] text-stone-500 uppercase tracking-wider font-bold">Foto Destra</p>
-                          <p className="text-[9px] text-stone-400">Carica Foto Destra</p>
-                        </div>
-                      )}
-                      {/* Removed overlay badge for clean layout */}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Right"
+                      src={model.imageRight}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageLeft], 2)}
+                      zoom={model.zoomRight}
+                      offsetX={model.offsetXRight}
+                      offsetY={model.offsetYRight}
+                      alt="Right landscape"
+                      slotLabel="Foto Destra"
+                      sublabel="In basso a destra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                   <span className="text-[7.5px] font-bold uppercase tracking-[0.2em] text-slate-800 mt-0.5">
                     ACTION / MOOD SHOT
@@ -907,31 +1043,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 className="bg-white p-1 hover:p-1.5 shadow-2xl border-2 border-slate-950 transition-all duration-300 hover:shadow-3xl flex flex-col justify-between"
                 style={{ width: "269mm", height: "125mm" }}
               >
-                <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                  {model.imageCenter ? (
-                    <CardImage
-                      src={model.imageCenter}
-                      alt="Solo Highlight"
-                      zoom={model.zoomCenter}
-                      offsetX={model.offsetXCenter}
-                      offsetY={model.offsetYCenter}
-                    />
-                  ) : model.imageLeft ? (
-                    <CardImage
-                      src={model.imageLeft}
-                      alt="Solo Highlight"
-                      zoom={model.zoomLeft}
-                      offsetX={model.offsetXLeft}
-                      offsetY={model.offsetYLeft}
-                    />
-                  ) : (
-                    <div className="text-center p-4">
-                      <p className="text-[13px] text-slate-800 uppercase tracking-widest font-extrabold">Copertina Singola / Lookbook</p>
-                      <p className="text-[11px] text-stone-400 mt-1.5">Carica Foto Centrale (o Sinistra) per visualizzarla in questo spazio gigante</p>
-                    </div>
-                  )}
-                  {/* Removed overlay badge for clean layout */}
-                </div>
+                <InteractivePhotoSlot
+                  slot="Center"
+                  src={model.imageCenter || model.imageLeft || model.imageRight}
+                  fallbackSrc={getFallback([], 0)}
+                  zoom={model.zoomCenter || model.zoomLeft}
+                  offsetX={model.offsetXCenter || model.offsetXLeft}
+                  offsetY={model.offsetYCenter || model.offsetYLeft}
+                  alt="Solo Highlight"
+                  slotLabel="Copertina Lookbook"
+                  sublabel="Singola Gigante"
+                  onUploadSlot={onUploadSlot}
+                  onQuickFillSlot={onQuickFillSlot}
+                  availablePhotos={availablePhotos}
+                />
               </div>
               <span className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-900 mt-1">
                 PORTFOLIO STAR PIECE
@@ -948,22 +1073,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-md border border-slate-200 transition-all duration-300 hover:shadow-lg flex flex-col justify-between"
                   style={{ width: "132mm", height: "55mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageLeft ? (
-                      <CardImage
-                        src={model.imageLeft}
-                        alt="Grid 1"
-                        zoom={model.zoomLeft}
-                        offsetX={model.offsetXLeft}
-                        offsetY={model.offsetYLeft}
-                      />
-                    ) : (
-                      <div className="text-center p-2">
-                        <p className="text-[11px] text-stone-500 font-bold uppercase tracking-wider">Foto 1</p>
-                        <p className="text-[9px] text-stone-400">Inserisci Foto Sinistra</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Left"
+                    src={model.imageLeft}
+                    fallbackSrc={getFallback([], 0)}
+                    zoom={model.zoomLeft}
+                    offsetX={model.offsetXLeft}
+                    offsetY={model.offsetYLeft}
+                    alt="Grid 1"
+                    slotLabel="Foto 1"
+                    sublabel="In alto a sinistra"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[7.5px] font-bold uppercase tracking-[0.2em] text-slate-500 mt-0.5">PORTRAIT SHOT</span>
               </div>
@@ -974,22 +1097,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-md border border-slate-200 transition-all duration-300 hover:shadow-lg flex flex-col justify-between"
                   style={{ width: "132mm", height: "55mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageCenter ? (
-                      <CardImage
-                        src={model.imageCenter}
-                        alt="Grid 2"
-                        zoom={model.zoomCenter}
-                        offsetX={model.offsetXCenter}
-                        offsetY={model.offsetYCenter}
-                      />
-                    ) : (
-                      <div className="text-center p-2">
-                        <p className="text-[11px] text-stone-500 font-bold uppercase tracking-wider">Foto 2</p>
-                        <p className="text-[9px] text-stone-400">Inserisci Foto Centro</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Center"
+                    src={model.imageCenter}
+                    fallbackSrc={getFallback([], 1)}
+                    zoom={model.zoomCenter}
+                    offsetX={model.offsetXCenter}
+                    offsetY={model.offsetYCenter}
+                    alt="Grid 2"
+                    slotLabel="Foto 2"
+                    sublabel="In alto a destra"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[7.5px] font-bold uppercase tracking-[0.2em] text-slate-500 mt-0.5">DETAIL SHOT</span>
               </div>
@@ -1000,22 +1121,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-md border border-slate-200 transition-all duration-300 hover:shadow-lg flex flex-col justify-between"
                   style={{ width: "132mm", height: "55mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageRight ? (
-                      <CardImage
-                        src={model.imageRight}
-                        alt="Grid 3"
-                        zoom={model.zoomRight}
-                        offsetX={model.offsetXRight}
-                        offsetY={model.offsetYRight}
-                      />
-                    ) : (
-                      <div className="text-center p-2">
-                        <p className="text-[11px] text-stone-500 font-bold uppercase tracking-wider">Foto 3</p>
-                        <p className="text-[9px] text-stone-400">Inserisci Foto Destra</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Right"
+                    src={model.imageRight}
+                    fallbackSrc={getFallback([], 2)}
+                    zoom={model.zoomRight}
+                    offsetX={model.offsetXRight}
+                    offsetY={model.offsetYRight}
+                    alt="Grid 3"
+                    slotLabel="Foto 3"
+                    sublabel="In basso a sinistra"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[7.5px] font-bold uppercase tracking-[0.2em] text-slate-500 mt-0.5">FULL LENGTH</span>
               </div>
@@ -1026,22 +1145,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-md border border-slate-200 transition-all duration-300 hover:shadow-lg flex flex-col justify-between"
                   style={{ width: "132mm", height: "55mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.image4 ? (
-                      <CardImage
-                        src={model.image4}
-                        alt="Grid 4"
-                        zoom={model.zoom4}
-                        offsetX={model.offsetX4}
-                        offsetY={model.offsetY4}
-                      />
-                    ) : (
-                      <div className="text-center p-2">
-                        <p className="text-[11px] text-stone-500 font-bold uppercase tracking-wider">Foto 4</p>
-                        <p className="text-[9px] text-stone-400">Inserisci Foto 4</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="4"
+                    src={model.image4}
+                    fallbackSrc={getFallback([], 3)}
+                    zoom={model.zoom4}
+                    offsetX={model.offsetX4}
+                    offsetY={model.offsetY4}
+                    alt="Grid 4"
+                    slotLabel="Foto 4"
+                    sublabel="In basso a destra"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[7.5px] font-bold uppercase tracking-[0.2em] text-slate-500 mt-0.5">MOOD SHOT</span>
               </div>
@@ -1057,21 +1174,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md flex flex-col justify-between"
                   style={{ width: "87mm", height: "55mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageLeft ? (
-                      <CardImage
-                        src={model.imageLeft}
-                        alt="Grid 6 - 1"
-                        zoom={model.zoomLeft}
-                        offsetX={model.offsetXLeft}
-                        offsetY={model.offsetYLeft}
-                      />
-                    ) : (
-                      <div className="text-center p-1">
-                        <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto 1</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Left"
+                    src={model.imageLeft}
+                    fallbackSrc={getFallback([], 0)}
+                    zoom={model.zoomLeft}
+                    offsetX={model.offsetXLeft}
+                    offsetY={model.offsetYLeft}
+                    alt="Grid 6 - 1"
+                    slotLabel="Foto 1"
+                    sublabel="Ritratto A"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[6.5px] font-bold uppercase tracking-[0.15em] text-slate-500 mt-0.5">PORTRAIT A</span>
               </div>
@@ -1082,21 +1198,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md flex flex-col justify-between"
                   style={{ width: "87mm", height: "55mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageCenter ? (
-                      <CardImage
-                        src={model.imageCenter}
-                        alt="Grid 6 - 2"
-                        zoom={model.zoomCenter}
-                        offsetX={model.offsetXCenter}
-                        offsetY={model.offsetYCenter}
-                      />
-                    ) : (
-                      <div className="text-center p-1">
-                        <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto 2</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Center"
+                    src={model.imageCenter}
+                    fallbackSrc={getFallback([], 1)}
+                    zoom={model.zoomCenter}
+                    offsetX={model.offsetXCenter}
+                    offsetY={model.offsetYCenter}
+                    alt="Grid 6 - 2"
+                    slotLabel="Foto 2"
+                    sublabel="Ritratto B"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[6.5px] font-bold uppercase tracking-[0.15em] text-slate-500 mt-0.5">PORTRAIT B</span>
               </div>
@@ -1107,21 +1222,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md flex flex-col justify-between"
                   style={{ width: "87mm", height: "55mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageRight ? (
-                      <CardImage
-                        src={model.imageRight}
-                        alt="Grid 6 - 3"
-                        zoom={model.zoomRight}
-                        offsetX={model.offsetXRight}
-                        offsetY={model.offsetYRight}
-                      />
-                    ) : (
-                      <div className="text-center p-1">
-                        <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto 3</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Right"
+                    src={model.imageRight}
+                    fallbackSrc={getFallback([], 2)}
+                    zoom={model.zoomRight}
+                    offsetX={model.offsetXRight}
+                    offsetY={model.offsetYRight}
+                    alt="Grid 6 - 3"
+                    slotLabel="Foto 3"
+                    sublabel="Dettaglio"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[6.5px] font-bold uppercase tracking-[0.15em] text-slate-500 mt-0.5">DETAIL SHOT</span>
               </div>
@@ -1132,21 +1246,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md flex flex-col justify-between"
                   style={{ width: "87mm", height: "55mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.image4 ? (
-                      <CardImage
-                        src={model.image4}
-                        alt="Grid 6 - 4"
-                        zoom={model.zoom4}
-                        offsetX={model.offsetX4}
-                        offsetY={model.offsetY4}
-                      />
-                    ) : (
-                      <div className="text-center p-1">
-                        <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto 4</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="4"
+                    src={model.image4}
+                    fallbackSrc={getFallback([], 3)}
+                    zoom={model.zoom4}
+                    offsetX={model.offsetX4}
+                    offsetY={model.offsetY4}
+                    alt="Grid 6 - 4"
+                    slotLabel="Foto 4"
+                    sublabel="Mood A"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[6.5px] font-bold uppercase tracking-[0.15em] text-slate-500 mt-0.5">MOOD A</span>
               </div>
@@ -1157,21 +1270,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md flex flex-col justify-between"
                   style={{ width: "87mm", height: "55mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.image5 ? (
-                      <CardImage
-                        src={model.image5}
-                        alt="Grid 6 - 5"
-                        zoom={model.zoom5}
-                        offsetX={model.offsetX5}
-                        offsetY={model.offsetY5}
-                      />
-                    ) : (
-                      <div className="text-center p-1">
-                        <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto 5</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="5"
+                    src={model.image5}
+                    fallbackSrc={getFallback([], 4)}
+                    zoom={model.zoom5}
+                    offsetX={model.offsetX5}
+                    offsetY={model.offsetY5}
+                    alt="Grid 6 - 5"
+                    slotLabel="Foto 5"
+                    sublabel="Mood B"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[6.5px] font-bold uppercase tracking-[0.15em] text-slate-500 mt-0.5">MOOD B</span>
               </div>
@@ -1182,21 +1294,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md flex flex-col justify-between"
                   style={{ width: "87mm", height: "55mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.image6 ? (
-                      <CardImage
-                        src={model.image6}
-                        alt="Grid 6 - 6"
-                        zoom={model.zoom6}
-                        offsetX={model.offsetX6}
-                        offsetY={model.offsetY6}
-                      />
-                    ) : (
-                      <div className="text-center p-1">
-                        <p className="text-[10px] text-stone-500 font-bold">Foto 6</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="6"
+                    src={model.image6}
+                    fallbackSrc={getFallback([], 5)}
+                    zoom={model.zoom6}
+                    offsetX={model.offsetX6}
+                    offsetY={model.offsetY6}
+                    alt="Grid 6 - 6"
+                    slotLabel="Foto 6"
+                    sublabel="Intero"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
                 <span className="text-[6.5px] font-bold uppercase tracking-[0.15em] text-slate-500 mt-0.5">FULL LENGTH</span>
               </div>
@@ -1212,22 +1323,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg flex flex-col justify-between"
                   style={{ width: "80mm", height: "135mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageLeft ? (
-                      <CardImage
-                        src={model.imageLeft}
-                        alt="Left Tall Editorial"
-                        zoom={model.zoomLeft}
-                        offsetX={model.offsetXLeft}
-                        offsetY={model.offsetYLeft}
-                      />
-                    ) : (
-                      <div className="text-center p-2">
-                        <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto Sinistra</p>
-                        <p className="text-[8px] text-stone-400">Carica Foto</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Left"
+                    src={model.imageLeft}
+                    fallbackSrc={getFallback([], 0)}
+                    zoom={model.zoomLeft}
+                    offsetX={model.offsetXLeft}
+                    offsetY={model.offsetYLeft}
+                    alt="Left Tall Editorial"
+                    slotLabel="Foto Sinistra"
+                    sublabel="Ritratto alto impatto"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1319,22 +1428,20 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg flex flex-col justify-between"
                   style={{ width: "66mm", height: "135mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageCenter ? (
-                      <CardImage
-                        src={model.imageCenter}
-                        alt="Center Editorial Portrait"
-                        zoom={model.zoomCenter}
-                        offsetX={model.offsetXCenter}
-                        offsetY={model.offsetYCenter}
-                      />
-                    ) : (
-                      <div className="text-center p-2">
-                        <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Foto Centro</p>
-                        <p className="text-[8px] text-stone-400">Carica Foto</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Center"
+                    src={model.imageCenter}
+                    fallbackSrc={getFallback([model.imageLeft], 1)}
+                    zoom={model.zoomCenter}
+                    offsetX={model.offsetXCenter}
+                    offsetY={model.offsetYCenter}
+                    alt="Center Editorial Portrait"
+                    slotLabel="Foto Centro"
+                    sublabel="Mezza figura"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1346,76 +1453,88 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 {/* Grid Item 1: imageRight */}
                 <div className="flex flex-col items-center">
                   <div 
-                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
+                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative flex items-center justify-center"
                   >
-                    {model.imageRight ? (
-                      <CardImage
-                        src={model.imageRight}
-                        alt="Editorial grid 1"
-                        zoom={model.zoomRight}
-                        offsetX={model.offsetXRight}
-                        offsetY={model.offsetYRight}
-                      />
-                    ) : (
-                      <p className="text-[7px] text-stone-400 uppercase font-semibold">Foto 3</p>
-                    )}
+                    <InteractivePhotoSlot
+                      slot="Right"
+                      src={model.imageRight}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageLeft], 2)}
+                      zoom={model.zoomRight}
+                      offsetX={model.offsetXRight}
+                      offsetY={model.offsetYRight}
+                      alt="Editorial grid 1"
+                      slotLabel="Foto 3"
+                      sublabel="Griglia A"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
                 {/* Grid Item 2: image4 */}
                 <div className="flex flex-col items-center">
                   <div 
-                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
+                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative flex items-center justify-center"
                   >
-                    {model.image4 ? (
-                      <CardImage
-                        src={model.image4}
-                        alt="Editorial grid 2"
-                        zoom={model.zoom4}
-                        offsetX={model.offsetX4}
-                        offsetY={model.offsetY4}
-                      />
-                    ) : (
-                      <p className="text-[7px] text-stone-400 uppercase font-semibold">Foto 4</p>
-                    )}
+                    <InteractivePhotoSlot
+                      slot="4"
+                      src={model.image4}
+                      fallbackSrc={getFallback([model.imageLeft, model.imageCenter], 3)}
+                      zoom={model.zoom4}
+                      offsetX={model.offsetX4}
+                      offsetY={model.offsetY4}
+                      alt="Editorial grid 2"
+                      slotLabel="Foto 4"
+                      sublabel="Griglia B"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
                 {/* Grid Item 3: image5 */}
                 <div className="flex flex-col items-center animate-fade-in">
                   <div 
-                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
+                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative flex items-center justify-center"
                   >
-                    {model.image5 ? (
-                      <CardImage
-                        src={model.image5}
-                        alt="Editorial grid 3"
-                        zoom={model.zoom5}
-                        offsetX={model.offsetX5}
-                        offsetY={model.offsetY5}
-                      />
-                    ) : (
-                      <p className="text-[7px] text-stone-400 uppercase font-semibold">Foto 5</p>
-                    )}
+                    <InteractivePhotoSlot
+                      slot="5"
+                      src={model.image5}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageRight], 4)}
+                      zoom={model.zoom5}
+                      offsetX={model.offsetX5}
+                      offsetY={model.offsetY5}
+                      alt="Editorial grid 3"
+                      slotLabel="Foto 5"
+                      sublabel="Griglia C"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
                 {/* Grid Item 4: image6 */}
                 <div className="flex flex-col items-center">
                   <div 
-                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative bg-slate-100 flex items-center justify-center"
+                    className="bg-white p-0.5 shadow-sm border border-slate-200/60 transition-all duration-300 w-[40mm] h-[66.75mm] overflow-hidden relative flex items-center justify-center"
                   >
-                    {model.image6 ? (
-                      <CardImage
-                        src={model.image6}
-                        alt="Editorial grid 4"
-                        zoom={model.zoom6}
-                        offsetX={model.offsetX6}
-                        offsetY={model.offsetY6}
-                      />
-                    ) : (
-                      <p className="text-[7px] text-stone-400 uppercase font-semibold">Foto 6</p>
-                    )}
+                    <InteractivePhotoSlot
+                      slot="6"
+                      src={model.image6}
+                      fallbackSrc={getFallback([model.imageRight, model.imageLeft], 5)}
+                      zoom={model.zoom6}
+                      offsetX={model.offsetX6}
+                      offsetY={model.offsetY6}
+                      alt="Editorial grid 4"
+                      slotLabel="Foto 6"
+                      sublabel="Griglia D"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
               </div>
@@ -1431,19 +1550,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-xs border border-slate-200 transition-all duration-300 hover:shadow-sm flex flex-col justify-between"
                   style={{ width: "52mm", height: "61mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                    {model.imageLeft ? (
-                      <CardImage
-                        src={model.imageLeft}
-                        alt="Grid 10 - 1"
-                        zoom={model.zoomLeft}
-                        offsetX={model.offsetXLeft}
-                        offsetY={model.offsetYLeft}
-                      />
-                    ) : (
-                      <p className="text-[8px] text-stone-400 uppercase font-semibold">Foto 1</p>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Left"
+                    src={model.imageLeft}
+                    fallbackSrc={getFallback([], 0)}
+                    zoom={model.zoomLeft}
+                    offsetX={model.offsetXLeft}
+                    offsetY={model.offsetYLeft}
+                    filter={model.filterLeft}
+                    alt="Grid 10 - 1"
+                    slotLabel="Foto 1"
+                    sublabel="Posizione 1"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1453,19 +1574,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-xs border border-slate-200 transition-all duration-300 hover:shadow-sm flex flex-col justify-between"
                   style={{ width: "52mm", height: "61mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                    {model.imageCenter ? (
-                      <CardImage
-                        src={model.imageCenter}
-                        alt="Grid 10 - 2"
-                        zoom={model.zoomCenter}
-                        offsetX={model.offsetXCenter}
-                        offsetY={model.offsetYCenter}
-                      />
-                    ) : (
-                      <p className="text-[8px] text-stone-400 uppercase font-semibold">Foto 2</p>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Center"
+                    src={model.imageCenter}
+                    fallbackSrc={getFallback([], 1)}
+                    zoom={model.zoomCenter}
+                    offsetX={model.offsetXCenter}
+                    offsetY={model.offsetYCenter}
+                    filter={model.filterCenter}
+                    alt="Grid 10 - 2"
+                    slotLabel="Foto 2"
+                    sublabel="Posizione 2"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1475,19 +1598,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-xs border border-slate-200 transition-all duration-300 hover:shadow-sm flex flex-col justify-between"
                   style={{ width: "52mm", height: "61mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                    {model.imageRight ? (
-                      <CardImage
-                        src={model.imageRight}
-                        alt="Grid 10 - 3"
-                        zoom={model.zoomRight}
-                        offsetX={model.offsetXRight}
-                        offsetY={model.offsetYRight}
-                      />
-                    ) : (
-                      <p className="text-[8px] text-stone-400 uppercase font-semibold">Foto 3</p>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Right"
+                    src={model.imageRight}
+                    fallbackSrc={getFallback([], 2)}
+                    zoom={model.zoomRight}
+                    offsetX={model.offsetXRight}
+                    offsetY={model.offsetYRight}
+                    filter={model.filterRight}
+                    alt="Grid 10 - 3"
+                    slotLabel="Foto 3"
+                    sublabel="Posizione 3"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1497,19 +1622,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-xs border border-slate-200 transition-all duration-300 hover:shadow-sm flex flex-col justify-between"
                   style={{ width: "52mm", height: "61mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                    {model.image4 ? (
-                      <CardImage
-                        src={model.image4}
-                        alt="Grid 10 - 4"
-                        zoom={model.zoom4}
-                        offsetX={model.offsetX4}
-                        offsetY={model.offsetY4}
-                      />
-                    ) : (
-                      <p className="text-[8px] text-stone-400 uppercase font-semibold">Foto 4</p>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="4"
+                    src={model.image4}
+                    fallbackSrc={getFallback([], 3)}
+                    zoom={model.zoom4}
+                    offsetX={model.offsetX4}
+                    offsetY={model.offsetY4}
+                    filter={model.filter4}
+                    alt="Grid 10 - 4"
+                    slotLabel="Foto 4"
+                    sublabel="Posizione 4"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1519,19 +1646,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-xs border border-slate-200 transition-all duration-300 hover:shadow-sm flex flex-col justify-between"
                   style={{ width: "52mm", height: "61mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                    {model.image5 ? (
-                      <CardImage
-                        src={model.image5}
-                        alt="Grid 10 - 5"
-                        zoom={model.zoom5}
-                        offsetX={model.offsetX5}
-                        offsetY={model.offsetY5}
-                      />
-                    ) : (
-                      <p className="text-[8px] text-stone-400 uppercase font-semibold">Foto 5</p>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="5"
+                    src={model.image5}
+                    fallbackSrc={getFallback([], 4)}
+                    zoom={model.zoom5}
+                    offsetX={model.offsetX5}
+                    offsetY={model.offsetY5}
+                    filter={model.filter5}
+                    alt="Grid 10 - 5"
+                    slotLabel="Foto 5"
+                    sublabel="Posizione 5"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1541,19 +1670,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-xs border border-slate-200 transition-all duration-300 hover:shadow-sm flex flex-col justify-between"
                   style={{ width: "52mm", height: "61mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                    {model.image6 ? (
-                      <CardImage
-                        src={model.image6}
-                        alt="Grid 10 - 6"
-                        zoom={model.zoom6}
-                        offsetX={model.offsetX6}
-                        offsetY={model.offsetY6}
-                      />
-                    ) : (
-                      <p className="text-[8px] text-stone-400 uppercase font-semibold">Foto 6</p>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="6"
+                    src={model.image6}
+                    fallbackSrc={getFallback([], 5)}
+                    zoom={model.zoom6}
+                    offsetX={model.offsetX6}
+                    offsetY={model.offsetY6}
+                    filter={model.filter6}
+                    alt="Grid 10 - 6"
+                    slotLabel="Foto 6"
+                    sublabel="Posizione 6"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1563,19 +1694,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-xs border border-slate-200 transition-all duration-300 hover:shadow-sm flex flex-col justify-between"
                   style={{ width: "52mm", height: "61mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                    {model.image7 ? (
-                      <CardImage
-                        src={model.image7}
-                        alt="Grid 10 - 7"
-                        zoom={model.zoom7}
-                        offsetX={model.offsetX7}
-                        offsetY={model.offsetY7}
-                      />
-                    ) : (
-                      <p className="text-[8px] text-stone-400 uppercase font-semibold">Foto 7</p>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="7"
+                    src={model.image7}
+                    fallbackSrc={getFallback([], 6)}
+                    zoom={model.zoom7}
+                    offsetX={model.offsetX7}
+                    offsetY={model.offsetY7}
+                    filter={model.filter7}
+                    alt="Grid 10 - 7"
+                    slotLabel="Foto 7"
+                    sublabel="Posizione 7"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1585,19 +1718,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-xs border border-slate-200 transition-all duration-300 hover:shadow-sm flex flex-col justify-between"
                   style={{ width: "52mm", height: "61mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                    {model.image8 ? (
-                      <CardImage
-                        src={model.image8}
-                        alt="Grid 10 - 8"
-                        zoom={model.zoom8}
-                        offsetX={model.offsetX8}
-                        offsetY={model.offsetY8}
-                      />
-                    ) : (
-                      <p className="text-[8px] text-stone-400 uppercase font-semibold">Foto 8</p>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="8"
+                    src={model.image8}
+                    fallbackSrc={getFallback([], 7)}
+                    zoom={model.zoom8}
+                    offsetX={model.offsetX8}
+                    offsetY={model.offsetY8}
+                    filter={model.filter8}
+                    alt="Grid 10 - 8"
+                    slotLabel="Foto 8"
+                    sublabel="Posizione 8"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1607,19 +1742,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-xs border border-slate-200 transition-all duration-300 hover:shadow-sm flex flex-col justify-between"
                   style={{ width: "52mm", height: "61mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                    {model.image9 ? (
-                      <CardImage
-                        src={model.image9}
-                        alt="Grid 10 - 9"
-                        zoom={model.zoom9}
-                        offsetX={model.offsetX9}
-                        offsetY={model.offsetY9}
-                      />
-                    ) : (
-                      <p className="text-[8px] text-stone-400 uppercase font-semibold">Foto 9</p>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="9"
+                    src={model.image9}
+                    fallbackSrc={getFallback([], 8)}
+                    zoom={model.zoom9}
+                    offsetX={model.offsetX9}
+                    offsetY={model.offsetY9}
+                    filter={model.filter9}
+                    alt="Grid 10 - 9"
+                    slotLabel="Foto 9"
+                    sublabel="Posizione 9"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -1629,19 +1766,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-0.5 shadow-xs border border-slate-200 transition-all duration-300 hover:shadow-sm flex flex-col justify-between"
                   style={{ width: "52mm", height: "61mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-50 flex items-center justify-center">
-                    {model.image10 ? (
-                      <CardImage
-                        src={model.image10}
-                        alt="Grid 10 - 10"
-                        zoom={model.zoom10}
-                        offsetX={model.offsetX10}
-                        offsetY={model.offsetY10}
-                      />
-                    ) : (
-                      <p className="text-[8px] text-stone-400 uppercase font-semibold">Foto 10</p>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="10"
+                    src={model.image10}
+                    fallbackSrc={getFallback([], 9)}
+                    zoom={model.zoom10}
+                    offsetX={model.offsetX10}
+                    offsetY={model.offsetY10}
+                    filter={model.filter10}
+                    alt="Grid 10 - 10"
+                    slotLabel="Foto 10"
+                    sublabel="Posizione 10"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
             </div>
@@ -1725,22 +1864,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg flex flex-col justify-between overflow-hidden relative bg-slate-100"
                     style={{ width: "183mm", height: "61mm" }}
                   >
-                    {model.imageLeft ? (
-                      <CardImage
-                        src={model.imageLeft}
-                        alt="Cinematic Portrait Top"
-                        zoom={model.zoomLeft}
-                        offsetX={model.offsetXLeft}
-                        offsetY={model.offsetYLeft}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-center p-2">
-                        <div>
-                          <p className="text-[11px] text-stone-500 font-bold uppercase tracking-wider">Foto Cinematica Alto</p>
-                          <p className="text-[9px] text-stone-400 mt-0.5">Carica Foto Sinistra</p>
-                        </div>
-                      </div>
-                    )}
+                    <InteractivePhotoSlot
+                      slot="Left"
+                      src={model.imageLeft}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageRight], 0)}
+                      zoom={model.zoomLeft}
+                      offsetX={model.offsetXLeft}
+                      offsetY={model.offsetYLeft}
+                      filter={model.filterLeft}
+                      alt="Cinematic Portrait Top"
+                      slotLabel="Foto Cinematica Alto"
+                      sublabel="In alto"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
@@ -1750,22 +1888,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-0.5 shadow-md border border-slate-200/80 transition-all duration-300 hover:shadow-lg flex flex-col justify-between overflow-hidden relative bg-slate-100"
                     style={{ width: "183mm", height: "61mm" }}
                   >
-                    {model.imageCenter ? (
-                      <CardImage
-                        src={model.imageCenter}
-                        alt="Cinematic Portrait Bottom"
-                        zoom={model.zoomCenter}
-                        offsetX={model.offsetXCenter}
-                        offsetY={model.offsetYCenter}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-center p-2">
-                        <div>
-                          <p className="text-[11px] text-stone-500 font-bold uppercase tracking-wider">Foto Cinematica Basso</p>
-                          <p className="text-[9px] text-stone-400 mt-0.5">Carica Foto Centro</p>
-                        </div>
-                      </div>
-                    )}
+                    <InteractivePhotoSlot
+                      slot="Center"
+                      src={model.imageCenter}
+                      fallbackSrc={getFallback([model.imageRight, model.imageLeft], 1)}
+                      zoom={model.zoomCenter}
+                      offsetX={model.offsetXCenter}
+                      offsetY={model.offsetYCenter}
+                      filter={model.filterCenter}
+                      alt="Cinematic Portrait Bottom"
+                      slotLabel="Foto Cinematica Basso"
+                      sublabel="In basso"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
               </div>
@@ -1782,22 +1919,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                     style={{ width: "131mm", height: "115mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageLeft ? (
-                        <CardImage
-                          src={model.imageLeft}
-                          alt="Campaign Left"
-                          zoom={model.zoomLeft}
-                          offsetX={model.offsetXLeft}
-                          offsetY={model.offsetYLeft}
-                        />
-                      ) : (
-                        <div className="text-center p-4">
-                          <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto di Sinistra</p>
-                          <p className="text-[10px] text-stone-400 mt-1">Carica Foto Sinistra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Left"
+                      src={model.imageLeft}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageRight], 0)}
+                      zoom={model.zoomLeft}
+                      offsetX={model.offsetXLeft}
+                      offsetY={model.offsetYLeft}
+                      filter={model.filterLeft}
+                      alt="Campaign Left"
+                      slotLabel="Foto di Sinistra"
+                      sublabel="Sinistra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
@@ -1807,22 +1943,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                     style={{ width: "131mm", height: "115mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageCenter ? (
-                        <CardImage
-                          src={model.imageCenter}
-                          alt="Campaign Right"
-                          zoom={model.zoomCenter}
-                          offsetX={model.offsetXCenter}
-                          offsetY={model.offsetYCenter}
-                        />
-                      ) : (
-                        <div className="text-center p-4">
-                          <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto di Destra</p>
-                          <p className="text-[10px] text-stone-400 mt-1">Carica Foto Centro</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Center"
+                      src={model.imageCenter}
+                      fallbackSrc={getFallback([model.imageRight, model.imageLeft], 1)}
+                      zoom={model.zoomCenter}
+                      offsetX={model.offsetXCenter}
+                      offsetY={model.offsetYCenter}
+                      filter={model.filterCenter}
+                      alt="Campaign Right"
+                      slotLabel="Foto di Destra"
+                      sublabel="Destra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
               </div>
@@ -1850,22 +1985,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                     style={{ width: "125mm", height: "140mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageLeft ? (
-                        <CardImage
-                          src={model.imageLeft}
-                          alt="Campaign Left Portrait"
-                          zoom={model.zoomLeft}
-                          offsetX={model.offsetXLeft}
-                          offsetY={model.offsetYLeft}
-                        />
-                      ) : (
-                        <div className="text-center p-4">
-                          <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto di Sinistra</p>
-                          <p className="text-[10px] text-stone-400 mt-1">Carica Foto Sinistra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Left"
+                      src={model.imageLeft}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageRight], 0)}
+                      zoom={model.zoomLeft}
+                      offsetX={model.offsetXLeft}
+                      offsetY={model.offsetYLeft}
+                      filter={model.filterLeft}
+                      alt="Campaign Left Portrait"
+                      slotLabel="Foto di Sinistra"
+                      sublabel="Sinistra verticale"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
@@ -1875,22 +2009,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                     style={{ width: "125mm", height: "140mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageCenter ? (
-                        <CardImage
-                          src={model.imageCenter}
-                          alt="Campaign Center Portrait"
-                          zoom={model.zoomCenter}
-                          offsetX={model.offsetXCenter}
-                          offsetY={model.offsetYCenter}
-                        />
-                      ) : (
-                        <div className="text-center p-4">
-                          <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto di Destra</p>
-                          <p className="text-[10px] text-stone-400 mt-1">Carica Foto Centro</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Center"
+                      src={model.imageCenter}
+                      fallbackSrc={getFallback([model.imageRight, model.imageLeft], 1)}
+                      zoom={model.zoomCenter}
+                      offsetX={model.offsetXCenter}
+                      offsetY={model.offsetYCenter}
+                      filter={model.filterCenter}
+                      alt="Campaign Center Portrait"
+                      slotLabel="Foto di Destra"
+                      sublabel="Destra verticale"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
               </div>
@@ -1918,22 +2051,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                     style={{ width: "131mm", height: "115mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageLeft ? (
-                        <CardImage
-                          src={model.imageLeft}
-                          alt="Wedding Campaign Left"
-                          zoom={model.zoomLeft}
-                          offsetX={model.offsetXLeft}
-                          offsetY={model.offsetYLeft}
-                        />
-                      ) : (
-                        <div className="text-center p-4">
-                          <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto di Sinistra</p>
-                          <p className="text-[10px] text-stone-400 mt-1">Carica Foto Sinistra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Left"
+                      src={model.imageLeft}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageRight], 0)}
+                      zoom={model.zoomLeft}
+                      offsetX={model.offsetXLeft}
+                      offsetY={model.offsetYLeft}
+                      filter={model.filterLeft}
+                      alt="Wedding Campaign Left"
+                      slotLabel="Foto di Sinistra"
+                      sublabel="Sinistra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
@@ -1956,20 +2088,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
 
                     {/* Inner Picture Mount / Black Thin Frame */}
                     <div className="w-[100mm] h-[85mm] bg-slate-900 border border-slate-950/40 shadow-md overflow-hidden relative flex items-center justify-center z-10">
-                      {model.imageCenter ? (
-                        <CardImage
-                          src={model.imageCenter}
-                          alt="Wedding Campaign Right"
-                          zoom={model.zoomCenter}
-                          offsetX={model.offsetXCenter}
-                          offsetY={model.offsetYCenter}
-                        />
-                      ) : (
-                        <div className="text-center p-4">
-                          <p className="text-[12px] text-stone-200 uppercase tracking-widest font-bold">Foto di Destra</p>
-                          <p className="text-[10px] text-stone-400 mt-1">Carica Foto Centro</p>
-                        </div>
-                      )}
+                      <InteractivePhotoSlot
+                        slot="Center"
+                        src={model.imageCenter}
+                        fallbackSrc={getFallback([model.imageRight, model.imageLeft], 1)}
+                        zoom={model.zoomCenter}
+                        offsetX={model.offsetXCenter}
+                        offsetY={model.offsetYCenter}
+                        filter={model.filterCenter}
+                        alt="Wedding Campaign Right"
+                        slotLabel="Foto di Destra"
+                        sublabel="Cornice marmo"
+                        onUploadSlot={onUploadSlot}
+                        onQuickFillSlot={onQuickFillSlot}
+                        availablePhotos={availablePhotos}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1996,67 +2129,67 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                 className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between shrink-0 mb-4"
                 style={{ width: "76mm", height: "138mm" }}
               >
-                <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                  {model.imageLeft ? (
-                    <CardImage
-                      src={model.imageLeft}
-                      alt="Left Tall"
-                      zoom={model.zoomLeft}
-                      offsetX={model.offsetXLeft}
-                      offsetY={model.offsetYLeft}
-                    />
-                  ) : (
-                    <div className="text-center p-2">
-                      <p className="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Foto di Sinistra</p>
-                    </div>
-                  )}
-                </div>
+                <InteractivePhotoSlot
+                  slot="Left"
+                  src={model.imageLeft}
+                  fallbackSrc={getFallback([], 0)}
+                  zoom={model.zoomLeft}
+                  offsetX={model.offsetXLeft}
+                  offsetY={model.offsetYLeft}
+                  filter={model.filterLeft}
+                  alt="Left Tall"
+                  slotLabel="Foto di Sinistra"
+                  sublabel="Ritratto alto"
+                  onUploadSlot={onUploadSlot}
+                  onQuickFillSlot={onQuickFillSlot}
+                  availablePhotos={availablePhotos}
+                />
               </div>
 
               {/* Center Stack Photos */}
               <div className="flex flex-col gap-[3mm] shrink-0 mb-4">
                 {/* Top Photo */}
                 <div 
-                  className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl"
+                  className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                   style={{ width: "76mm", height: "67.5mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageCenter ? (
-                      <CardImage
-                        src={model.imageCenter}
-                        alt="Center Top"
-                        zoom={model.zoomCenter}
-                        offsetX={model.offsetXCenter}
-                        offsetY={model.offsetYCenter}
-                      />
-                    ) : (
-                      <div className="text-center p-2">
-                        <p className="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Foto Centro Alto</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Center"
+                    src={model.imageCenter}
+                    fallbackSrc={getFallback([model.imageRight, model.imageLeft], 1)}
+                    zoom={model.zoomCenter}
+                    offsetX={model.offsetXCenter}
+                    offsetY={model.offsetYCenter}
+                    filter={model.filterCenter}
+                    alt="Center Top"
+                    slotLabel="Foto Centro Alto"
+                    sublabel="In alto"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
 
                 {/* Bottom Photo */}
                 <div 
-                  className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl"
+                  className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                   style={{ width: "76mm", height: "67.5mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageRight ? (
-                      <CardImage
-                        src={model.imageRight}
-                        alt="Center Bottom"
-                        zoom={model.zoomRight}
-                        offsetX={model.offsetXRight}
-                        offsetY={model.offsetYRight}
-                      />
-                    ) : (
-                      <div className="text-center p-2">
-                        <p className="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Foto Centro Basso</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Right"
+                    src={model.imageRight}
+                    fallbackSrc={getFallback([model.imageCenter, model.imageLeft], 2)}
+                    zoom={model.zoomRight}
+                    offsetX={model.offsetXRight}
+                    offsetY={model.offsetYRight}
+                    filter={model.filterRight}
+                    alt="Center Bottom"
+                    slotLabel="Foto Centro Basso"
+                    sublabel="In basso"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -2142,22 +2275,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-[0.3mm] hover:p-[0.5mm] shadow-md border-r border-slate-100 transition-all duration-300 flex flex-col justify-between"
                     style={{ width: "133.5mm", height: "140mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageLeft ? (
-                        <CardImage
-                          src={model.imageLeft}
-                          alt="Campaign Left Seamless"
-                          zoom={model.zoomLeft}
-                          offsetX={model.offsetXLeft}
-                          offsetY={model.offsetYLeft}
-                        />
-                      ) : (
-                        <div className="text-center p-4">
-                          <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto di Sinistra</p>
-                          <p className="text-[10px] text-stone-400 mt-1">Carica Foto Sinistra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Left"
+                      src={model.imageLeft}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageRight], 0)}
+                      zoom={model.zoomLeft}
+                      offsetX={model.offsetXLeft}
+                      offsetY={model.offsetYLeft}
+                      filter={model.filterLeft}
+                      alt="Campaign Left Seamless"
+                      slotLabel="Foto di Sinistra"
+                      sublabel="Sinistra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
@@ -2167,22 +2299,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-[0.3mm] hover:p-[0.5mm] shadow-md transition-all duration-300 flex flex-col justify-between"
                     style={{ width: "133.5mm", height: "140mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageCenter ? (
-                        <CardImage
-                          src={model.imageCenter}
-                          alt="Campaign Right Seamless"
-                          zoom={model.zoomCenter}
-                          offsetX={model.offsetXCenter}
-                          offsetY={model.offsetYCenter}
-                        />
-                      ) : (
-                        <div className="text-center p-4">
-                          <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto di Destra</p>
-                          <p className="text-[10px] text-stone-400 mt-1">Carica Foto Centro</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Center"
+                      src={model.imageCenter}
+                      fallbackSrc={getFallback([model.imageRight, model.imageLeft], 1)}
+                      zoom={model.zoomCenter}
+                      offsetX={model.offsetXCenter}
+                      offsetY={model.offsetYCenter}
+                      filter={model.filterCenter}
+                      alt="Campaign Right Seamless"
+                      slotLabel="Foto di Destra"
+                      sublabel="Destra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
               </div>
@@ -2211,22 +2342,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-md border border-stone-200/60 transition-all duration-300 hover:shadow-lg flex flex-col"
                     style={{ width: "122mm", height: "68.6mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageLeft ? (
-                        <CardImage
-                          src={model.imageLeft}
-                          alt="Video Still Left"
-                          zoom={model.zoomLeft}
-                          offsetX={model.offsetXLeft}
-                          offsetY={model.offsetYLeft}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Still Sinistra</p>
-                          <p className="text-[8px] text-stone-400">Carica Foto Sinistra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Left"
+                      src={model.imageLeft}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageRight], 0)}
+                      zoom={model.zoomLeft}
+                      offsetX={model.offsetXLeft}
+                      offsetY={model.offsetYLeft}
+                      filter={model.filterLeft}
+                      alt="Video Still Left"
+                      slotLabel="Still Sinistra"
+                      sublabel="In alto a sinistra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
@@ -2247,22 +2377,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-md border border-stone-200/60 transition-all duration-300 hover:shadow-lg flex flex-col"
                     style={{ width: "122mm", height: "68.6mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageCenter ? (
-                        <CardImage
-                          src={model.imageCenter}
-                          alt="Video Still Center"
-                          zoom={model.zoomCenter}
-                          offsetX={model.offsetXCenter}
-                          offsetY={model.offsetYCenter}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Still Centro</p>
-                          <p className="text-[8px] text-stone-400">Carica Foto Centro</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Center"
+                      src={model.imageCenter}
+                      fallbackSrc={getFallback([model.imageRight, model.imageLeft], 1)}
+                      zoom={model.zoomCenter}
+                      offsetX={model.offsetXCenter}
+                      offsetY={model.offsetYCenter}
+                      filter={model.filterCenter}
+                      alt="Video Still Center"
+                      slotLabel="Still Centro"
+                      sublabel="In alto a destra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
               </div>
@@ -2285,22 +2414,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-md border border-stone-200/60 transition-all duration-300 hover:shadow-lg flex flex-col"
                     style={{ width: "122mm", height: "68.6mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageRight ? (
-                        <CardImage
-                          src={model.imageRight}
-                          alt="Video Still Right"
-                          zoom={model.zoomRight}
-                          offsetX={model.offsetXRight}
-                          offsetY={model.offsetYRight}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Still Centro-Basso</p>
-                          <p className="text-[8px] text-stone-400">Carica Foto Centro-Basso</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Right"
+                      src={model.imageRight}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageLeft], 2)}
+                      zoom={model.zoomRight}
+                      offsetX={model.offsetXRight}
+                      offsetY={model.offsetYRight}
+                      filter={model.filterRight}
+                      alt="Video Still Right"
+                      slotLabel="Still Centro-Basso"
+                      sublabel="In basso al centro"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
               </div>
@@ -2331,22 +2459,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-md border border-stone-200/60 transition-all duration-300 hover:shadow-lg flex flex-col"
                     style={{ width: "116mm", height: "65.25mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageLeft ? (
-                        <CardImage
-                          src={model.imageLeft}
-                          alt="Video Still Top-Left"
-                          zoom={model.zoomLeft}
-                          offsetX={model.offsetXLeft}
-                          offsetY={model.offsetYLeft}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Still 1 (Top-Left)</p>
-                          <p className="text-[8px] text-stone-400">Carica Foto Sinistra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Left"
+                      src={model.imageLeft}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageRight], 0)}
+                      zoom={model.zoomLeft}
+                      offsetX={model.offsetXLeft}
+                      offsetY={model.offsetYLeft}
+                      filter={model.filterLeft}
+                      alt="Video Still Top-Left"
+                      slotLabel="Still 1 (Top-Left)"
+                      sublabel="In alto a sinistra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
@@ -2367,22 +2494,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-md border border-stone-200/60 transition-all duration-300 hover:shadow-lg flex flex-col"
                     style={{ width: "116mm", height: "65.25mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageCenter ? (
-                        <CardImage
-                          src={model.imageCenter}
-                          alt="Video Still Top-Right"
-                          zoom={model.zoomCenter}
-                          offsetX={model.offsetXCenter}
-                          offsetY={model.offsetYCenter}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Still 2 (Top-Right)</p>
-                          <p className="text-[8px] text-stone-400">Carica Foto Centro</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Center"
+                      src={model.imageCenter}
+                      fallbackSrc={getFallback([model.imageRight, model.imageLeft], 1)}
+                      zoom={model.zoomCenter}
+                      offsetX={model.offsetXCenter}
+                      offsetY={model.offsetYCenter}
+                      filter={model.filterCenter}
+                      alt="Video Still Top-Right"
+                      slotLabel="Still 2 (Top-Right)"
+                      sublabel="In alto a destra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
                 </div>
 
@@ -2398,22 +2524,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-md border border-stone-200/60 transition-all duration-300 hover:shadow-lg flex flex-col"
                     style={{ width: "116mm", height: "65.25mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.imageRight ? (
-                        <CardImage
-                          src={model.imageRight}
-                          alt="Video Still Bottom-Left"
-                          zoom={model.zoomRight}
-                          offsetX={model.offsetXRight}
-                          offsetY={model.offsetYRight}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Still 3 (Bottom-Left)</p>
-                          <p className="text-[8px] text-stone-400">Carica Foto Destra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Right"
+                      src={model.imageRight}
+                      fallbackSrc={getFallback([model.imageCenter, model.imageLeft], 2)}
+                      zoom={model.zoomRight}
+                      offsetX={model.offsetXRight}
+                      offsetY={model.offsetYRight}
+                      filter={model.filterRight}
+                      alt="Video Still Bottom-Left"
+                      slotLabel="Still 3 (Bottom-Left)"
+                      sublabel="In basso a sinistra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
 
                   <div className="text-center mt-2 min-h-[16px] flex flex-col justify-start">
@@ -2434,22 +2559,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                     className="bg-white p-1 hover:p-1.5 shadow-md border border-stone-200/60 transition-all duration-300 hover:shadow-lg flex flex-col"
                     style={{ width: "116mm", height: "65.25mm" }}
                   >
-                    <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                      {model.image4 ? (
-                        <CardImage
-                          src={model.image4}
-                          alt="Video Still Bottom-Right"
-                          zoom={model.zoom4}
-                          offsetX={model.offsetX4}
-                          offsetY={model.offsetY4}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Still 4 (Bottom-Right)</p>
-                          <p className="text-[8px] text-stone-400">Carica Foto 4</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="4"
+                      src={model.image4}
+                      fallbackSrc={getFallback([model.imageLeft, model.imageCenter], 3)}
+                      zoom={model.zoom4}
+                      offsetX={model.offsetX4}
+                      offsetY={model.offsetY4}
+                      filter={model.filter4}
+                      alt="Video Still Bottom-Right"
+                      slotLabel="Still 4 (Bottom-Right)"
+                      sublabel="In basso a destra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
 
                   <div className="text-center mt-2 min-h-[16px] flex flex-col justify-start">
@@ -2476,22 +2600,21 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   className="bg-white p-1 hover:p-1.5 shadow-lg border border-slate-200/60 transition-all duration-300 hover:shadow-xl flex flex-col justify-between"
                   style={{ width: "150mm", height: "135mm" }}
                 >
-                  <div className="w-full h-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {model.imageLeft ? (
-                      <CardImage
-                        src={model.imageLeft}
-                        alt="Campaign Single Centered"
-                        zoom={model.zoomLeft}
-                        offsetX={model.offsetXLeft}
-                        offsetY={model.offsetYLeft}
-                      />
-                    ) : (
-                      <div className="text-center p-4">
-                        <p className="text-[12px] text-stone-500 uppercase tracking-widest font-bold">Foto di Campagna</p>
-                        <p className="text-[10px] text-stone-400 mt-1">Carica Foto Principale</p>
-                      </div>
-                    )}
-                  </div>
+                  <InteractivePhotoSlot
+                    slot="Left"
+                    src={model.imageLeft}
+                    fallbackSrc={getFallback([model.imageCenter, model.imageRight], 0)}
+                    zoom={model.zoomLeft}
+                    offsetX={model.offsetXLeft}
+                    offsetY={model.offsetYLeft}
+                    filter={model.filterLeft}
+                    alt="Campaign Single Centered"
+                    slotLabel="Foto Principale"
+                    sublabel="Campagna singola"
+                    onUploadSlot={onUploadSlot}
+                    onQuickFillSlot={onQuickFillSlot}
+                    availablePhotos={availablePhotos}
+                  />
                 </div>
               </div>
 
@@ -2558,122 +2681,116 @@ export const ModelCard: React.FC<ModelCardProps> = ({
                   
                   {/* Col 1 Row 1 */}
                   <div className="bg-white p-0.5 hover:p-1 shadow-md border border-stone-200/40 relative flex flex-col justify-between w-[44mm] h-[58mm] z-10">
-                    <div className="w-full h-full overflow-hidden relative bg-slate-150 flex items-center justify-center">
-                      {model.imageLeft ? (
-                        <CardImage
-                          src={model.imageLeft}
-                          alt="Layout 6 Img 1"
-                          zoom={model.zoomLeft}
-                          offsetX={model.offsetXLeft}
-                          offsetY={model.offsetYLeft}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 1</p>
-                          <p className="text-[6px] text-stone-400">Alto Sinistra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Left"
+                      src={model.imageLeft}
+                      fallbackSrc={getFallback([], 0)}
+                      zoom={model.zoomLeft}
+                      offsetX={model.offsetXLeft}
+                      offsetY={model.offsetYLeft}
+                      filter={model.filterLeft}
+                      alt="Layout 6 Img 1"
+                      slotLabel="Foto 1"
+                      sublabel="Alto Sinistra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
 
                   {/* Col 2 Row 1 */}
                   <div className="bg-white p-0.5 hover:p-1 shadow-md border border-stone-200/40 relative flex flex-col justify-between w-[44mm] h-[58mm] z-10">
-                    <div className="w-full h-full overflow-hidden relative bg-slate-150 flex items-center justify-center">
-                      {model.imageCenter ? (
-                        <CardImage
-                          src={model.imageCenter}
-                          alt="Layout 6 Img 2"
-                          zoom={model.zoomCenter}
-                          offsetX={model.offsetXCenter}
-                          offsetY={model.offsetYCenter}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 2</p>
-                          <p className="text-[6px] text-stone-400">Alto Centro</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Center"
+                      src={model.imageCenter}
+                      fallbackSrc={getFallback([], 1)}
+                      zoom={model.zoomCenter}
+                      offsetX={model.offsetXCenter}
+                      offsetY={model.offsetYCenter}
+                      filter={model.filterCenter}
+                      alt="Layout 6 Img 2"
+                      slotLabel="Foto 2"
+                      sublabel="Alto Centro"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
 
                   {/* Col 3 Row 1 */}
                   <div className="bg-white p-0.5 hover:p-1 shadow-md border border-stone-200/40 relative flex flex-col justify-between w-[44mm] h-[58mm] z-10">
-                    <div className="w-full h-full overflow-hidden relative bg-slate-150 flex items-center justify-center">
-                      {model.imageRight ? (
-                        <CardImage
-                          src={model.imageRight}
-                          alt="Layout 6 Img 3"
-                          zoom={model.zoomRight}
-                          offsetX={model.offsetXRight}
-                          offsetY={model.offsetYRight}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 3</p>
-                          <p className="text-[6px] text-stone-400">Alto Destra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="Right"
+                      src={model.imageRight}
+                      fallbackSrc={getFallback([], 2)}
+                      zoom={model.zoomRight}
+                      offsetX={model.offsetXRight}
+                      offsetY={model.offsetYRight}
+                      filter={model.filterRight}
+                      alt="Layout 6 Img 3"
+                      slotLabel="Foto 3"
+                      sublabel="Alto Destra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
 
                   {/* Col 1 Row 2 */}
                   <div className="bg-white p-0.5 hover:p-1 shadow-md border border-stone-200/40 relative flex flex-col justify-between w-[44mm] h-[58mm] z-10">
-                    <div className="w-full h-full overflow-hidden relative bg-slate-150 flex items-center justify-center">
-                      {model.image4 ? (
-                        <CardImage
-                          src={model.image4}
-                          alt="Layout 6 Img 4"
-                          zoom={model.zoom4}
-                          offsetX={model.offsetX4}
-                          offsetY={model.offsetY4}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 4</p>
-                          <p className="text-[6px] text-stone-400">Basso Sinistra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="4"
+                      src={model.image4}
+                      fallbackSrc={getFallback([], 3)}
+                      zoom={model.zoom4}
+                      offsetX={model.offsetX4}
+                      offsetY={model.offsetY4}
+                      filter={model.filter4}
+                      alt="Layout 6 Img 4"
+                      slotLabel="Foto 4"
+                      sublabel="Basso Sinistra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
 
                   {/* Col 2 Row 2 */}
                   <div className="bg-white p-0.5 hover:p-1 shadow-md border border-stone-200/40 relative flex flex-col justify-between w-[44mm] h-[58mm] z-10">
-                    <div className="w-full h-full overflow-hidden relative bg-slate-150 flex items-center justify-center">
-                      {model.image5 ? (
-                        <CardImage
-                          src={model.image5}
-                          alt="Layout 6 Img 5"
-                          zoom={model.zoom5}
-                          offsetX={model.offsetX5}
-                          offsetY={model.offsetY5}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 5</p>
-                          <p className="text-[6px] text-stone-400">Basso Centro</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="5"
+                      src={model.image5}
+                      fallbackSrc={getFallback([], 4)}
+                      zoom={model.zoom5}
+                      offsetX={model.offsetX5}
+                      offsetY={model.offsetY5}
+                      filter={model.filter5}
+                      alt="Layout 6 Img 5"
+                      slotLabel="Foto 5"
+                      sublabel="Basso Centro"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
 
                   {/* Col 3 Row 2 */}
                   <div className="bg-white p-0.5 hover:p-1 shadow-md border border-stone-200/40 relative flex flex-col justify-between w-[44mm] h-[58mm] z-10">
-                    <div className="w-full h-full overflow-hidden relative bg-slate-150 flex items-center justify-center">
-                      {model.image6 ? (
-                        <CardImage
-                          src={model.image6}
-                          alt="Layout 6 Img 6"
-                          zoom={model.zoom6}
-                          offsetX={model.offsetX6}
-                          offsetY={model.offsetY6}
-                        />
-                      ) : (
-                        <div className="text-center p-2">
-                          <p className="text-[8px] text-stone-500 font-bold uppercase">Foto 6</p>
-                          <p className="text-[6px] text-stone-400">Basso Destra</p>
-                        </div>
-                      )}
-                    </div>
+                    <InteractivePhotoSlot
+                      slot="6"
+                      src={model.image6}
+                      fallbackSrc={getFallback([], 5)}
+                      zoom={model.zoom6}
+                      offsetX={model.offsetX6}
+                      offsetY={model.offsetY6}
+                      filter={model.filter6}
+                      alt="Layout 6 Img 6"
+                      slotLabel="Foto 6"
+                      sublabel="Basso Destra"
+                      onUploadSlot={onUploadSlot}
+                      onQuickFillSlot={onQuickFillSlot}
+                      availablePhotos={availablePhotos}
+                    />
                   </div>
 
                 </div>

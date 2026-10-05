@@ -657,7 +657,7 @@ export const ImportCardModal: React.FC<ImportCardModalProps> = ({
                     rows={8}
                     value={pasteText}
                     onChange={(e) => setPasteText(e.target.value)}
-                    placeholder='{\n  "name": "MARIA V.",\n  "height": "178",\n  "bust": "85",\n  "waist": "60",\n  "hips": "89",\n  "shoes": "39",\n  "eyes": "Verdi",\n  "hair": "Castani"\n}'
+                    placeholder='{\n  "name": "SOFIA B.",\n  "height": "178",\n  "bust": "85",\n  "waist": "60",\n  "hips": "89",\n  "shoes": "39",\n  "eyes": "Verdi",\n  "hair": "Castani"\n}'
                     className="w-full font-mono text-xs p-3 bg-slate-900 text-emerald-400 rounded-xl border border-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
                   <div className="flex items-center justify-between gap-3">

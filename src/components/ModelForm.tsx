@@ -1006,6 +1006,57 @@ export const ModelForm: React.FC<ModelFormProps> = ({
     });
   };
 
+  // Intelligent layout change handler: preserves layout & harmoniously populates newly revealed slots with existing user photos
+  const handleSelectLayout = (newLayout: string) => {
+    // Collect all existing photos uploaded by the user
+    const existingPhotos: string[] = [
+      model.imageLeft,
+      model.imageCenter,
+      model.imageRight,
+      model.image4,
+      model.image5,
+      model.image6,
+      model.image7,
+      model.image8,
+      model.image9,
+      model.image10,
+    ].filter((img): img is string => Boolean(img && typeof img === "string" && img.trim().length > 0));
+
+    // Slots required by the selected layout
+    const targetSlots: Array<keyof ModelData> = ["imageLeft"];
+    if (["duo", "asymmetric-left", "cinematic-2", "campaign-2", "campaign-2-portrait", "campaign-wedding", "campaign-seamless"].includes(newLayout)) {
+      targetSlots.push("imageCenter");
+    } else if (["classic", "campaign-3", "campaign-tvc"].includes(newLayout)) {
+      targetSlots.push("imageCenter", "imageRight");
+    } else if (["grid-4", "campaign-tvc-4"].includes(newLayout)) {
+      targetSlots.push("imageCenter", "imageRight", "image4");
+    } else if (newLayout === "campaign-5-hybrid") {
+      targetSlots.push("imageCenter", "imageRight", "image4", "image5");
+    } else if (["grid-6", "editorial-6", "campaign-brand-6"].includes(newLayout)) {
+      targetSlots.push("imageCenter", "imageRight", "image4", "image5", "image6");
+    } else if (newLayout === "grid-10") {
+      targetSlots.push("imageCenter", "imageRight", "image4", "image5", "image6", "image7", "image8", "image9", "image10");
+    }
+
+    const updatedModel: ModelData = {
+      ...model,
+      layout: newLayout,
+    };
+
+    // If user has existing photos, populate any missing slot in the target layout
+    if (existingPhotos.length > 0) {
+      targetSlots.forEach((slotKey, idx) => {
+        const currentVal = updatedModel[slotKey];
+        if (!currentVal || typeof currentVal !== "string" || currentVal.trim().length === 0) {
+          const fillSrc = existingPhotos[idx % existingPhotos.length];
+          (updatedModel as any)[slotKey] = fillSrc;
+        }
+      });
+    }
+
+    onChangeModel(updatedModel);
+  };
+
   // Helper for image recommended sizes
   const getImageRecommendation = (slot: "Left" | "Center" | "Right" | "4" | "5" | "6" | "7" | "8" | "9" | "10", layout: string) => {
     const l = layout || "classic";
@@ -1572,7 +1623,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <label className="text-xs font-semibold text-slate-700 block mb-1">Nome Modella / Modello</label>
                 <input
                   type="text"
-                  placeholder="es. MARIA V."
+                  placeholder="es. SOFIA B."
                   value={model.name}
                   onChange={(e) => handleFieldChange("name", e.target.value.toUpperCase())}
                   className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-slate-900 focus:border-transparent font-medium"
@@ -1598,7 +1649,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                   </div>
                   <input
                     type="text"
-                    placeholder="es. MARIA V. FOR VOGUE ITALIA (lascia vuoto per usare il testo predefinito)"
+                    placeholder="es. SOFIA B. FOR VOGUE ITALIA (lascia vuoto per usare il testo predefinito)"
                     value={model.customCaption || ""}
                     onChange={(e) => handleFieldChange("customCaption", e.target.value.toUpperCase())}
                     className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-slate-900 focus:border-transparent font-medium placeholder:text-slate-400"
@@ -3777,7 +3828,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 {/* 1. Classic */}
                 <button
                   type="button"
-                  onClick={() => handleFieldChange("layout", "classic")}
+                  onClick={() => handleSelectLayout("classic")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     (model.layout || "classic") === "classic"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -3796,7 +3847,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 {/* 2. Duo */}
                 <button
                   type="button"
-                  onClick={() => handleFieldChange("layout", "duo")}
+                  onClick={() => handleSelectLayout("duo")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "duo"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -3814,7 +3865,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 {/* 3. Asymmetric Left */}
                 <button
                   type="button"
-                  onClick={() => handleFieldChange("layout", "asymmetric-left")}
+                  onClick={() => handleSelectLayout("asymmetric-left")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "asymmetric-left"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -3835,7 +3886,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 {/* 4. Solo */}
                 <button
                   type="button"
-                  onClick={() => handleFieldChange("layout", "solo")}
+                  onClick={() => handleSelectLayout("solo")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "solo"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -3852,7 +3903,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 {/* 5. Grid 4 (2x2) */}
                 <button
                   type="button"
-                  onClick={() => handleFieldChange("layout", "grid-4")}
+                  onClick={() => handleSelectLayout("grid-4")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "grid-4"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -3872,7 +3923,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 {/* 6. Grid 6 (3x2) */}
                 <button
                   type="button"
-                  onClick={() => handleFieldChange("layout", "grid-6")}
+                  onClick={() => handleSelectLayout("grid-6")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "grid-6"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -3894,7 +3945,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 {/* 7. Editorial 6 */}
                 <button
                   type="button"
-                  onClick={() => handleFieldChange("layout", "editorial-6")}
+                  onClick={() => handleSelectLayout("editorial-6")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "editorial-6"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -3918,7 +3969,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 {/* 8. Grid 10 */}
                 <button
                   type="button"
-                  onClick={() => handleFieldChange("layout", "grid-10")}
+                  onClick={() => handleSelectLayout("grid-10")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "grid-10"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -3944,7 +3995,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 {/* 9. Cinematic Duo */}
                 <button
                   type="button"
-                  onClick={() => handleFieldChange("layout", "cinematic-2")}
+                  onClick={() => handleSelectLayout("cinematic-2")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "cinematic-2"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -3966,7 +4017,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <button
                   type="button"
                   id="layout-btn-campaign-2"
-                  onClick={() => handleFieldChange("layout", "campaign-2")}
+                  onClick={() => handleSelectLayout("campaign-2")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "campaign-2"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -3985,7 +4036,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <button
                   type="button"
                   id="layout-btn-campaign-2-portrait"
-                  onClick={() => handleFieldChange("layout", "campaign-2-portrait")}
+                  onClick={() => handleSelectLayout("campaign-2-portrait")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "campaign-2-portrait"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -4004,7 +4055,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <button
                   type="button"
                   id="layout-btn-campaign-wedding"
-                  onClick={() => handleFieldChange("layout", "campaign-wedding")}
+                  onClick={() => handleSelectLayout("campaign-wedding")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "campaign-wedding"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -4023,7 +4074,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <button
                   type="button"
                   id="layout-btn-campaign-3"
-                  onClick={() => handleFieldChange("layout", "campaign-3")}
+                  onClick={() => handleSelectLayout("campaign-3")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "campaign-3"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -4045,7 +4096,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <button
                   type="button"
                   id="layout-btn-campaign-seamless"
-                  onClick={() => handleFieldChange("layout", "campaign-seamless")}
+                  onClick={() => handleSelectLayout("campaign-seamless")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "campaign-seamless"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -4064,7 +4115,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <button
                   type="button"
                   id="layout-btn-campaign-tvc"
-                  onClick={() => handleFieldChange("layout", "campaign-tvc")}
+                  onClick={() => handleSelectLayout("campaign-tvc")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "campaign-tvc"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -4086,7 +4137,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <button
                   type="button"
                   id="layout-btn-campaign-solo"
-                  onClick={() => handleFieldChange("layout", "campaign-solo")}
+                  onClick={() => handleSelectLayout("campaign-solo")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "campaign-solo"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -4104,7 +4155,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <button
                   type="button"
                   id="layout-btn-campaign-tvc-4"
-                  onClick={() => handleFieldChange("layout", "campaign-tvc-4")}
+                  onClick={() => handleSelectLayout("campaign-tvc-4")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "campaign-tvc-4"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -4129,7 +4180,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <button
                   type="button"
                   id="layout-btn-campaign-brand-6"
-                  onClick={() => handleFieldChange("layout", "campaign-brand-6")}
+                  onClick={() => handleSelectLayout("campaign-brand-6")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "campaign-brand-6"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"
@@ -4164,7 +4215,7 @@ export const ModelForm: React.FC<ModelFormProps> = ({
                 <button
                   type="button"
                   id="layout-btn-campaign-5-hybrid"
-                  onClick={() => handleFieldChange("layout", "campaign-5-hybrid")}
+                  onClick={() => handleSelectLayout("campaign-5-hybrid")}
                   className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-[84px] transition-all cursor-pointer ${
                     model.layout === "campaign-5-hybrid"
                       ? "bg-slate-900 border-slate-900 text-white shadow-xs"

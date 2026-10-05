@@ -147,7 +147,7 @@ export const disegnaModellaSuPDF = async (
   const isSerifFont = globalFontFamily === "serif" || globalFontFamily === "cormorant";
   const primaryPdfFont = isSerifFont ? "times" : "helvetica";
 
-  const nomeModella = (resolvedDati?.nome || resolvedDati?.name || "MARIA V.").toUpperCase();
+  const nomeModella = (resolvedDati?.nome || resolvedDati?.name || "MODELLA").toUpperCase();
   const layout = resolvedDati?.layout || "classic";
   const campaignName = resolvedDati?.campaignName || "";
   const customCaption = resolvedDati?.customCaption || "";
@@ -2609,13 +2609,21 @@ export default function App() {
       if (cachedModels) {
         const parsed = JSON.parse(cachedModels);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Permanently purge any residual sample Maria V. from cache
+          const cleaned = parsed.filter(p => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1");
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem("fashion_catalog_profiles", JSON.stringify(cleaned));
+          }
+          if (cleaned.length > 0) {
+            return cleaned;
+          }
         }
       }
     } catch (e) {
       console.warn("Could not read local persistence cache on init", e);
     }
-    return [...SAMPLE_MODELS];
+    const wasPurged = typeof window !== "undefined" && localStorage.getItem("fashion_catalog_purged_maria") === "true";
+    return wasPurged ? [] : [...SAMPLE_MODELS];
   });
 
   // Cloud Database state (tracks if Firestore daily read quota has been reached on free tier)
@@ -2886,7 +2894,11 @@ export default function App() {
       if (cachedModels) {
         const parsed = JSON.parse(cachedModels);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setLocalProfiles(parsed);
+          const cleaned = parsed.filter(p => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1");
+          setLocalProfiles(cleaned);
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem("fashion_catalog_profiles", JSON.stringify(cleaned));
+          }
         }
       }
       const cachedAgency = localStorage.getItem("fashion_catalog_agency");
@@ -2905,7 +2917,13 @@ export default function App() {
         try {
           const list: ModelData[] = [];
           snapshot.forEach((docSnap) => {
-            list.push(docSnap.data() as ModelData);
+            const data = docSnap.data() as ModelData;
+            if ((data.name && data.name.toUpperCase().includes("MARIA")) || docSnap.id === "1") {
+              // Delete lingering sample document from Firestore
+              deleteDoc(doc(db, modelsCollection, docSnap.id)).catch(() => {});
+            } else {
+              list.push(data);
+            }
           });
 
           if (list.length > 0) {
@@ -2920,7 +2938,14 @@ export default function App() {
             console.log("Firestore empty, preserving local models and seeding...");
             const currentCache = localStorage.getItem("fashion_catalog_profiles");
             const parsed = currentCache ? JSON.parse(currentCache) : [];
-            const toSeed = (parsed && parsed.length > 0) ? parsed : SAMPLE_MODELS;
+            const cleanedCache = Array.isArray(parsed)
+              ? parsed.filter((p: ModelData) => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1")
+              : [];
+            const wasPurged = localStorage.getItem("fashion_catalog_purged_maria") === "true";
+            const toSeed = (cleanedCache && cleanedCache.length > 0)
+              ? cleanedCache
+              : (wasPurged ? [] : SAMPLE_MODELS.filter(p => !p.name?.toUpperCase().includes("MARIA")));
+
             for (const sample of toSeed) {
               try {
                 await setDoc(doc(db, modelsCollection, sample.id), sample);
@@ -2989,6 +3014,25 @@ export default function App() {
       unsubAgency();
     };
   }, []);
+
+  // Clean up any residual Maria V. profile if loaded initially in active state
+  useEffect(() => {
+    if (model.name?.trim().toUpperCase().includes("MARIA") || model.id === "1") {
+      const valid = localProfiles.find((p) => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1");
+      if (valid) {
+        commitHistoryImmediately(valid);
+        setModel(valid);
+        lastFirestoreSavedJsonRef.current = JSON.stringify(valid);
+      } else if (SAMPLE_MODELS.length > 0) {
+        const clean = SAMPLE_MODELS.find(p => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1") || SAMPLE_MODELS[0];
+        commitHistoryImmediately(clean);
+        setModel(clean);
+        lastFirestoreSavedJsonRef.current = JSON.stringify(clean);
+      } else {
+        handleClearForm();
+      }
+    }
+  }, [model.name, localProfiles]);
 
   // Dynamic scale listener for multi-device responsive preview fit
   useEffect(() => {
@@ -3103,6 +3147,7 @@ export default function App() {
   useEffect(() => {
     if (!autoSave) return;
     if (!model.name || !model.name.trim()) return;
+    if (model.name.trim().toUpperCase().includes("MARIA") || model.id === "1") return;
 
     // Only save if actual contents changed
     const currentJson = JSON.stringify(model);
@@ -3344,9 +3389,24 @@ export default function App() {
 
   // Delete profile from Firestore Cloud Database & Local Storage
   const handleDeleteLocal = async (idToDelete: string) => {
+    const targetToDelete = localProfiles.find((p) => p.id === idToDelete);
+    const targetName = targetToDelete?.name?.trim().toUpperCase();
+
+    if (targetName && targetName.includes("MARIA")) {
+      try {
+        localStorage.setItem("fashion_catalog_purged_maria", "true");
+      } catch (e) {}
+    }
+
     // 1. Immediately update local state and localStorage cache
     setLocalProfiles((prev) => {
-      const filtered = prev.filter((p) => p.id !== idToDelete);
+      const filtered = prev.filter((p) => {
+        if (p.id === idToDelete) return false;
+        if (targetName && targetName.includes("MARIA") && (p.name?.toUpperCase().includes("MARIA") || p.id === "1")) {
+          return false;
+        }
+        return true;
+      });
       try {
         localStorage.setItem("fashion_catalog_profiles", JSON.stringify(filtered));
       } catch (err) {
@@ -3358,15 +3418,22 @@ export default function App() {
     // Also remove from selected IDs list
     setSelectedModelIds((prev) => prev.filter((id) => id !== idToDelete));
 
-    // Switch active model if we deleted the current active one
-    const remaining = localProfiles.filter(p => p.id !== idToDelete);
-    if (model.id === idToDelete) {
-      if (remaining.length > 0) {
-        commitHistoryImmediately(remaining[0]);
-        setModel(remaining[0]);
+    // Switch active model if we deleted the current active one (either by ID or by matching name)
+    const isCurrentActive = model.id === idToDelete || (targetName && model.name?.trim().toUpperCase() === targetName);
+    if (isCurrentActive) {
+      const remaining = localProfiles.filter(p => p.id !== idToDelete && (!targetName || p.name?.trim().toUpperCase() !== targetName));
+      const cleanRemaining = remaining.filter(p => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1");
+      if (cleanRemaining.length > 0) {
+        commitHistoryImmediately(cleanRemaining[0]);
+        setModel(cleanRemaining[0]);
+        lastFirestoreSavedJsonRef.current = JSON.stringify(cleanRemaining[0]);
       } else if (SAMPLE_MODELS.length > 0) {
-        commitHistoryImmediately(SAMPLE_MODELS[0]);
-        setModel(SAMPLE_MODELS[0]);
+        const cleanSample = SAMPLE_MODELS.find(p => !p.name?.toUpperCase().includes("MARIA") && p.id !== "1") || SAMPLE_MODELS[0];
+        commitHistoryImmediately(cleanSample);
+        setModel(cleanSample);
+        lastFirestoreSavedJsonRef.current = JSON.stringify(cleanSample);
+      } else {
+        handleClearForm();
       }
     }
 
@@ -3505,6 +3572,64 @@ export default function App() {
       showNotification("Errore durante la ridenominazione dei profili nel Database.", "error");
       handleFirestoreError(e, OperationType.WRITE, "models/batch_rename");
     }
+  };
+
+  // Direct Click-To-Upload handler for any photo slot from preview card
+  const handleUploadSlotFromCard = (slot: string) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async (e: any) => {
+      const file = e.target?.files?.[0];
+      if (file) {
+        try {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const raw = ev.target?.result as string;
+            const img = new Image();
+            img.onload = () => {
+              const maxWidth = 1200;
+              const maxHeight = 1200;
+              let w = img.width;
+              let h = img.height;
+              if (w > h) {
+                if (w > maxWidth) {
+                  h = Math.round((h * maxWidth) / w);
+                  w = maxWidth;
+                }
+              } else {
+                if (h > maxHeight) {
+                  w = Math.round((w * maxHeight) / h);
+                  h = maxHeight;
+                }
+              }
+              const canvas = document.createElement("canvas");
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, w, h);
+                const b64 = canvas.toDataURL("image/jpeg", 0.82);
+                const key = `image${slot}` as keyof ModelData;
+                setModelWithHistory((prev) => ({ ...prev, [key]: b64 }));
+                showNotification(`Foto per Slot ${slot} inserita con successo!`, "success");
+              }
+            };
+            img.src = raw;
+          };
+          reader.readAsDataURL(file);
+        } catch (err) {
+          console.error("Upload error:", err);
+        }
+      }
+    };
+    input.click();
+  };
+
+  const handleQuickFillSlotFromCard = (slot: string, src: string) => {
+    const key = `image${slot}` as keyof ModelData;
+    setModelWithHistory((prev) => ({ ...prev, [key]: src }));
+    showNotification(`Foto assegnata allo Slot ${slot}!`, "success");
   };
 
   // Import cards (single card or catalog package) from JSON, CSV, or external files
@@ -4308,7 +4433,7 @@ export default function App() {
         finalPdf = await flattenPdfDocument(pdf);
       }
 
-      const nomeFattibile = (resolvedDati?.nome || resolvedDati?.name || "MARIA_V").replace(/\s+/g, "_");
+      const nomeFattibile = (resolvedDati?.nome || resolvedDati?.name || "SCHEDA_MODELLA").replace(/\s+/g, "_");
       finalPdf.save(`Scheda_Composit_${nomeFattibile}.pdf`);
       showNotification("PDF salvato con successo!", "success");
 
@@ -4597,9 +4722,40 @@ export default function App() {
               </div>
             </div>
             
-            {/* Soft, small guidance line under the image */}
+            {/* Always visible action buttons below image (convenient on both mobile and desktop) */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-1 select-none">
+              <label className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] py-1.5 px-3.5 rounded-xl cursor-pointer transition-all uppercase tracking-wider flex items-center gap-1.5 shadow-sm active:scale-95">
+                <FileUp size={13} />
+                <span>Cambia Foto...</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleWelcomeImageUpload}
+                  className="hidden"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={handleWelcomeImageUrlPrompt}
+                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-[11px] py-1.5 px-3 rounded-xl transition-all uppercase tracking-wider border border-neutral-700 flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm"
+              >
+                <ImageIcon size={13} className="text-neutral-400" />
+                <span>Link URL</span>
+              </button>
+              {welcomeImage !== "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=1200" && (
+                <button
+                  type="button"
+                  onClick={handleRestoreWelcomeImage}
+                  className="text-[10px] text-red-400 hover:text-red-300 underline tracking-wider uppercase cursor-pointer ml-1"
+                >
+                  Ripristina Originale
+                </button>
+              )}
+            </div>
+
+            {/* Soft guidance note */}
             <p className="text-[10px] text-neutral-500 font-mono italic">
-              Passa il mouse o tocca la foto per sostituirla
+              Puoi caricare qualsiasi foto dal tuo dispositivo o dal rullino dell'iPhone
             </p>
           </div>
 
@@ -5625,6 +5781,8 @@ export default function App() {
                   opacity: watermarkOpacity,
                   fontSize: watermarkFontSize,
                 }}
+                onUploadSlot={handleUploadSlotFromCard}
+                onQuickFillSlot={handleQuickFillSlotFromCard}
               />
               {showGridOverlay && (
                 <GridOverlay

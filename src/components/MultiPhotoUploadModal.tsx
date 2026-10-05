@@ -53,6 +53,25 @@ export const MultiPhotoUploadModal: React.FC<MultiPhotoUploadModalProps> = ({
 
   if (!isOpen) return null;
 
+  const ALL_SLOTS_ORDERED: Array<{ slot: string; label: string }> = [
+    { slot: "Left", label: "1. Foto Sinistra / Prima Foto" },
+    { slot: "Center", label: "2. Foto Centro / Seconda Foto" },
+    { slot: "Right", label: "3. Foto Destra / Terza Foto" },
+    { slot: "4", label: "4. Quarta Foto (Box 4)" },
+    { slot: "5", label: "5. Quinta Foto (Box 5)" },
+    { slot: "6", label: "6. Sesta Foto (Box 6)" },
+    { slot: "7", label: "7. Settima Foto (Box 7)" },
+    { slot: "8", label: "8. Ottava Foto (Box 8)" },
+    { slot: "9", label: "9. Nona Foto (Box 9)" },
+    { slot: "10", label: "10. Decima Foto (Box 10)" },
+  ];
+
+  // Merge activeSlots labels with fallback slots so any number of uploaded files can be assigned
+  const combinedSlotsList = ALL_SLOTS_ORDERED.map((def) => {
+    const custom = activeSlots.find((s) => s.slot === def.slot);
+    return custom ? custom : def;
+  });
+
   // Helper to compress and convert file to base64
   const compressImage = (file: File): Promise<{ base64: string; width: number; height: number }> => {
     return new Promise((resolve) => {
@@ -106,7 +125,7 @@ export const MultiPhotoUploadModal: React.FC<MultiPhotoUploadModalProps> = ({
 
     // Determine currently assigned slots in staging
     const alreadyAssignedSlots = new Set(stagedPhotos.map((p) => p.targetSlot));
-    const availableSlots = activeSlots.map((s) => s.slot);
+    const availableSlots = combinedSlotsList.map((s) => s.slot);
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -115,10 +134,13 @@ export const MultiPhotoUploadModal: React.FC<MultiPhotoUploadModalProps> = ({
         const orientation: "portrait" | "landscape" | "square" = 
           width === height ? "square" : width < height ? "portrait" : "landscape";
 
-        // Assign to first available unassigned slot or unassigned
+        // Assign to first available unassigned slot
         let assignedSlot = availableSlots.find((s) => !alreadyAssignedSlots.has(s)) || "";
         if (assignedSlot) {
           alreadyAssignedSlots.add(assignedSlot);
+        } else {
+          // If all 10 are filled, fallback to cycling through slots
+          assignedSlot = availableSlots[i % availableSlots.length];
         }
 
         newStaged.push({
@@ -129,7 +151,7 @@ export const MultiPhotoUploadModal: React.FC<MultiPhotoUploadModalProps> = ({
           width,
           height,
           orientation,
-          targetSlot: assignedSlot || (availableSlots[0] || "Left"),
+          targetSlot: assignedSlot || "Left",
         });
       } catch (err) {
         console.error("Error processing file", file.name, err);
@@ -363,7 +385,7 @@ export const MultiPhotoUploadModal: React.FC<MultiPhotoUploadModalProps> = ({
                           onChange={(e) => changeTargetSlot(photo.id, e.target.value)}
                           className="w-full text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all cursor-pointer"
                         >
-                          {activeSlots.map((s) => (
+                          {combinedSlotsList.map((s) => (
                             <option key={s.slot} value={s.slot}>
                               {s.label}
                             </option>
